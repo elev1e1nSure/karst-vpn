@@ -120,7 +120,7 @@ fun VpnScreen(
             outline = theme.border,
             primary = accent,
             onPrimary = Color.White,
-            error = Color(0xFFA56060),
+            error = theme.danger,
         )
     }
 
@@ -589,18 +589,13 @@ private fun ServerSheetContent(
         }
         val listState = rememberLazyListState()
 
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            RefreshAllButton(
-                loading = refreshAllLoading,
-                enabled = !refreshAllLoading,
-                accent = accent,
-                onClick = onRefreshAll,
-            )
-        }
+        RefreshAllButton(
+            loading = refreshAllLoading,
+            enabled = !refreshAllLoading,
+            accent = accent,
+            onClick = onRefreshAll,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
         LazyColumn(
             modifier = Modifier.heightIn(max = 360.dp).nestedScroll(listNestedScrollConnection),
             state = listState,
@@ -891,7 +886,7 @@ private fun SubscriptionMenuContent(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
                     .background(theme.cardBg)
-                    .border(1.dp, Color(0xFFA56060).copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                    .border(1.dp, theme.danger.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -914,7 +909,7 @@ private fun SubscriptionMenuContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFA56060))
+                                .background(theme.danger)
                                 .padding(10.dp),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -929,14 +924,14 @@ private fun SubscriptionMenuContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .border(1.dp, Color(0xFFA56060).copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                        .border(1.dp, theme.danger.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
                         .padding(horizontal = 12.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Icon(Icons.Filled.Delete, contentDescription = null, tint = Color(0xFFA56060), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.Delete, contentDescription = null, tint = theme.danger, modifier = Modifier.size(18.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Удалить подписку", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = Color(0xFFA56060))
+                        Text("Удалить подписку", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = theme.danger)
                         Text("Группа и её серверы будут удалены", fontSize = 12.sp, color = theme.mutedInk)
                     }
                 }
@@ -992,6 +987,7 @@ private fun RefreshAllButton(
     enabled: Boolean,
     accent: Color,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     Pressable(
@@ -1001,6 +997,7 @@ private fun RefreshAllButton(
         },
         pressedScale = 0.85f,
         enabled = enabled,
+        modifier = modifier,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1141,7 +1138,7 @@ private fun AddServerForm(
             modifier = Modifier.fillMaxWidth().testTag("add_server_input"),
         )
         if (error != null) {
-            Text(error, fontSize = 12.sp, color = Color(0xFFA56060))
+            Text(error, fontSize = 12.sp, color = theme.danger)
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Pressable(onClick = onCancel, enabled = !loading, modifier = Modifier.weight(1f)) {

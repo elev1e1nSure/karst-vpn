@@ -16,6 +16,7 @@ data class VpnColors(
     val buttonOffBg: Color,
     val buttonOffBorder: Color,
     val buttonOffIcon: Color,
+    val danger: Color,
 )
 
 val VpnDarkColors = VpnColors(
@@ -28,6 +29,7 @@ val VpnDarkColors = VpnColors(
     buttonOffBg = Color(0xFF262421),
     buttonOffBorder = Color(0xFF373430),
     buttonOffIcon = Color(0xFFA7A39D),
+    danger = Color(0xFFA56060),
 )
 
 val VpnLightColors = VpnColors(
@@ -40,6 +42,7 @@ val VpnLightColors = VpnColors(
     buttonOffBg = Color(0xFFF9F8F5),
     buttonOffBorder = Color(0xFFD1CDC5),
     buttonOffIcon = Color(0xFF675F56),
+    danger = Color(0xFFA56060),
 )
 
 val DefaultAccent = Color(0xFFD97757)

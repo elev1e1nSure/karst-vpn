@@ -18,7 +18,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,12 +63,13 @@ fun LogsScreen(
             Spacer(modifier = Modifier.width(14.dp))
             Text(
                 text = "Логи",
+                fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Medium,
                 fontSize = 18.sp,
                 color = theme.ink,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = {
+            Pressable(onClick = {
                 Haptics.click(context)
                 clipboard.setText(AnnotatedString(lines.joinToString("\n")))
             }) {
@@ -80,7 +80,7 @@ fun LogsScreen(
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
-            IconButton(onClick = {
+            Pressable(onClick = {
                 Haptics.medium(context)
                 AppLogBuffer.clear()
             }) {
