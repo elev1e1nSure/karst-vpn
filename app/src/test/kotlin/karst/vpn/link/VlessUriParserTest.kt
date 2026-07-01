@@ -80,6 +80,108 @@ class VlessUriParserTest {
         assertTrue(result.exceptionOrNull() is InvalidVlessLinkError)
     }
 
+    // New tests covering all requested edge cases
+
+    @Test
+    fun parsesIpv4Ipv6AndDomainHosts() {
+        // IPv4
+        val ipv4Link = parseVlessLink("$BASE@127.0.0.1:443?security=none").getOrThrow()
+        assertEquals("127.0.0.1", ipv4Link.host)
+        assertEquals(443, ipv4Link.port)
+
+        // IPv6 (in brackets)
+        val ipv6Link = parseVlessLink("$BASE@[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:8443?security=none").getOrThrow()
+        assertEquals("2001:0db8:85a3:0000:0000:8a2e:0370:7334", ipv6Link.host)
+        assertEquals(8443, ipv6Link.port)
+
+        // Domain
+        val domainLink = parseVlessLink("$BASE@sub.domain-name.co.uk:80?security=none").getOrThrow()
+        assertEquals("sub.domain-name.co.uk", domainLink.host)
+        assertEquals(80, domainLink.port)
+    }
+
+    @Test
+    fun parsesPercentDecodedRemarksAndPath() {
+        val link = parseVlessLink("$BASE@example.com:443?security=none&path=%2Fmy%20path#My%20Remark%20%D1%82%D0%B5%D1%81%D1%82").getOrThrow()
+        assertEquals("/my path", link.path)
+        assertEquals("My Remark тест", link.remark)
+    }
+
+    @Test
+    fun parsesEmptyFragmentFallbackToHost() {
+        val link = parseVlessLink("$BASE@example.com:443?security=none#").getOrThrow()
+        assertEquals("example.com", link.remark)
+        
+        val linkNoFragment = parseVlessLink("$BASE@example.com:443?security=none").getOrThrow()
+        assertEquals("example.com", linkNoFragment.remark)
+    }
+
+    @Test
+    fun parsesNonStandardQueryParamsSilently() {
+        val link = parseVlessLink("$BASE@example.com:443?security=none&some-custom-field=123&another=xyz").getOrThrow()
+        assertEquals("example.com", link.host)
+    }
+
+    @Test
+    fun rejectsMissingOrInvalidPort() {
+        // Missing port
+        val noPort = parseVlessLink("$BASE@example.com?security=none")
+        assertTrue(noPort.isFailure)
+        assertTrue(noPort.exceptionOrNull() is InvalidVlessLinkError)
+
+        // Non-numeric port
+        val nonNumericPort = parseVlessLink("$BASE@example.com:abc?security=none")
+        assertTrue(nonNumericPort.isFailure)
+
+        // Zero port
+        val zeroPort = parseVlessLink("$BASE@example.com:0?security=none")
+        assertTrue(zeroPort.isFailure)
+
+        // Out of range port
+        val outOfRangePort = parseVlessLink("$BASE@example.com:65536?security=none")
+        assertTrue(outOfRangePort.isFailure)
+    }
+
+    @Test
+    fun rejectsRealityWithoutPublicKey() {
+        val noPbk = parseVlessLink("$BASE@example.com:443?security=reality")
+        assertTrue(noPbk.isFailure)
+        assertEquals("security=reality требует параметр pbk", noPbk.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun parsesAllSupportedTransportsAndUnsupported() {
+        // tcp
+        val tcp = parseVlessLink("$BASE@example.com:443?security=none&type=tcp").getOrThrow()
+        assertEquals(TransportType.Tcp, tcp.transport)
+
+        // ws
+        val ws = parseVlessLink("$BASE@example.com:443?security=none&type=ws").getOrThrow()
+        assertEquals(TransportType.Ws, ws.transport)
+
+        // grpc
+        val grpc = parseVlessLink("$BASE@example.com:443?security=none&type=grpc").getOrThrow()
+        assertEquals(TransportType.Grpc, grpc.transport)
+
+        // http
+        val http = parseVlessLink("$BASE@example.com:443?security=none&type=http").getOrThrow()
+        assertEquals(TransportType.Http, http.transport)
+
+        // httpupgrade
+        val httpupgrade = parseVlessLink("$BASE@example.com:443?security=none&type=httpupgrade").getOrThrow()
+        assertEquals(TransportType.HttpUpgrade, httpupgrade.transport)
+
+        // xhttp explicitly unsupported
+        val xhttp = parseVlessLink("$BASE@example.com:443?security=none&type=xhttp")
+        assertTrue(xhttp.isFailure)
+        assertTrue(xhttp.exceptionOrNull() is UnsupportedTransportError)
+
+        // Unknown transport
+        val unknown = parseVlessLink("$BASE@example.com:443?security=none&type=unknown_transport")
+        assertTrue(unknown.isFailure)
+        assertTrue(unknown.exceptionOrNull() is InvalidVlessLinkError)
+    }
+
     private companion object {
         const val UUID = "11111111-1111-4111-8111-111111111111"
         const val BASE = "vless://$UUID"
