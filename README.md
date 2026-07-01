@@ -1,117 +1,47 @@
 # Karst VPN
 
-Минималистичный Android VPN-клиент для VLESS-подключений и подписок. Приложение построено на Kotlin, Jetpack Compose и `libbox` от sing-box: добавляешь ссылку, выбираешь сервер, подключаешься одной кнопкой.
-
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./karst_latest.png">
-    <img
-      src="./karst_latest.png"
-      alt="Скриншот главного экрана Karst VPN"
-      width="360"
-      style="max-width: min(100%, 360px); aspect-ratio: 9 / 16; object-fit: contain; border-radius: 24px;"
-    >
-  </picture>
+  <img src="https://img.shields.io/github/v/release/elev1e1nSure/karst-vpn?label=release" alt="Release">
+  <img src="https://img.shields.io/badge/platform-Android%208.0%2B-3DDC84?logo=android&logoColor=white" alt="Platform">
+  <img src="https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
+  <img src="https://img.shields.io/badge/core-sing--box-informational" alt="sing-box">
+  <img src="https://github.com/elev1e1nSure/karst-vpn/actions/workflows/release.yml/badge.svg" alt="Build">
 </p>
 
-## Что умеет
+Android-клиент для VLESS-подключений и подписок. Добавляешь ссылку, выбираешь сервер, подключаешься одной кнопкой.
 
-- Импорт одиночных `vless://` ссылок.
-- Импорт подписок по `https://`, включая base64-encoded списки.
-- Хранение серверов и подписок локально через Room.
-- Выбор активного сервера и проверка задержки.
-- Подключение через Android `VpnService` и sing-box `tun` inbound.
-- Темная тема, уведомления о статусе и экран логов.
-- Раздельная маршрутизация локальных, приватных и RU-доменов напрямую.
+<p align="center">
+  <img src="./karst_latest.png" alt="Скриншот Karst VPN" width="320" style="border-radius: 24px;">
+</p>
+
+## Возможности
+
+- Импорт `vless://` ссылок и подписок (в т.ч. base64), хранение локально через Room.
+- Проверка задержки и выбор активного сервера.
+- Подключение через Android `VpnService` и sing-box `tun`.
+- Гибкая маршрутизация: полный туннель, обход локальной сети, обход RU-доменов.
+- Тёмная/светлая тема (авто по системной на первом запуске), экран логов.
 
 ## Стек
 
-- Kotlin, Coroutines, Serialization.
-- Jetpack Compose, Material 3.
-- Room, DataStore.
-- OkHttp.
-- sing-box `libbox.aar`.
-- Gradle Kotlin DSL.
+Kotlin · Coroutines · Jetpack Compose · Material 3 · Room · DataStore · OkHttp · sing-box (`libbox.aar`)
 
-## Структура
+## Сборка
 
-```text
-app/src/main/kotlin/karst/vpn/
-  core/    VPN service, sing-box config, platform bridge
-  data/    Room, DataStore, repositories, entities, DAO
-  link/    VLESS and subscription parsing
-  log/     in-memory log buffer
-  net/     subscription fetch and latency probe
-  ui/      Compose screens, theme, view model
-```
-
-## Быстрый старт
-
-Требования:
-
-- Android Studio или Android SDK.
-- JDK 17.
-- Android SDK 36.
-- Android NDK, если нужно пересобрать `libbox.aar`.
-- Go, если нужно пересобрать `libbox.aar`.
-- [just](https://github.com/casey/just), опционально (алиасы для команд).
-
-Сборка debug APK:
+Нужны JDK 17 и Android SDK 36.
 
 ```powershell
-.\gradlew.bat assembleDebug
+.\gradlew.bat assembleDebug   # debug APK
+.\gradlew.bat test            # тесты
+.\scripts\build_libbox.ps1    # пересборка libbox.aar из sing-box
 ```
 
-Запуск тестов:
+С [just](https://github.com/casey/just): `just dbg`, `just rel`, `just test`, `just lib <tag>`, `just` — список команд.
 
-```powershell
-.\gradlew.bat test
-```
+## Релизы
 
-Команды через just:
-
-```powershell
-just dbg         # assembleDebug
-just rel         # assembleRelease
-just test        # тесты
-just clean       # clean
-just lib v1.14.0 # пересборка libbox.aar под указанный тег sing-box
-just all         # test + release
-just             # список всех команд
-```
-
-Пересборка `libbox.aar` из sing-box:
-
-```powershell
-.\scripts\build_libbox.ps1
-```
-
-Скрипт использует `ANDROID_HOME` или `sdk.dir` из `local.properties`, а NDK берет из `ANDROID_NDK_HOME` либо из установленного SDK.
-
-## CI/CD
-
-Пуш тега `v*` (например `v1.0.0`) триггерит сборку release APK и загрузку в GitHub Releases.
-Имя APK: `karst-vpn-v{version}.apk`. Версия и versionCode выставляются из тега автоматически
-(тег `v1.2.3` → `versionName=1.2.3`, `versionCode=1002003`).
-
-Подпись через GitHub Secrets:
-
-| Секрет | Значение |
-|---|---|
-| `KEYSTORE_BASE64` | `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore"))` |
-| `KEYSTORE_PASSWORD` | пароль от keystore |
-| `KEY_ALIAS` | алиас ключа |
-| `KEY_PASSWORD` | пароль от ключа |
+Пуш тега `v*` собирает подписанный APK и публикует его в GitHub Releases (`karst-vpn-v{version}.apk`). Версия берётся из тега.
 
 ## Безопасность
 
-Не коммить:
-
-- `local.properties`;
-- keystore-файлы;
-- реальные VPN-ссылки и подписки;
-- приватные домены, токены, endpoint-ы и пользовательские логи.
-
-## Статус
-
-Проект находится в активной разработке. Перед изменениями в VPN-core, парсерах ссылок или маршрутизации проверяй поведение на устройстве или эмуляторе: ошибки в этих слоях обычно проявляются только на реальном Android networking stack.
+Не коммитить: `local.properties`, keystore-файлы, реальные VPN-ссылки/подписки, приватные endpoint-ы и пользовательские логи.
