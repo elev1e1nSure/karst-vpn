@@ -19,6 +19,10 @@ test:
 clean:
     ./gradlew.bat clean
 
+# Build debug APK and install via adb
+install: dbg
+    adb install -r app/build/outputs/apk/debug/app-debug.apk
+
 # Build sing-box AAR (pass tag, e.g. just lib v1.14.0)
 lib tag='v1.13.14':
     ./scripts/build_libbox.ps1 -SingBoxTag {{tag}}
