@@ -95,6 +95,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -110,6 +112,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import karst.vpn.data.RoutingMode
+import karst.vpn.data.SubscriptionAutoRefreshMode
 import kotlinx.coroutines.delay
 
 private enum class Route {
@@ -340,7 +344,13 @@ private fun MainVpnScreen(
                     theme = theme,
                     accent = accent,
                     darkModeOn = state.darkModeOn,
+                    routingMode = state.routingMode,
+                    subscriptionAutoRefreshMode = state.subscriptionAutoRefreshMode,
+                    subscriptionAutoRefreshHours = state.subscriptionAutoRefreshHours,
                     onToggleDarkMode = { viewModel.setDarkMode(!state.darkModeOn) },
+                    onSetRoutingMode = viewModel::setRoutingMode,
+                    onSetSubscriptionAutoRefreshMode = viewModel::setSubscriptionAutoRefreshMode,
+                    onSetSubscriptionAutoRefreshHours = viewModel::setSubscriptionAutoRefreshHours,
                     onOpenLogs = {
                         settingsVisible = false
                         onOpenLogs()
@@ -594,6 +604,16 @@ private fun ServerSheetContent(
     onChangeAddServerValue: (String) -> Unit,
     onSubmitAddServer: () -> Unit,
 ) {
+    // subscriptionMenu goes null the instant the menu is closed (or its subscription is
+    // deleted), in the same recomposition that starts the exit animation. AnimatedContent
+    // still renders the outgoing "menu" slot for the duration of that animation, so reading
+    // subscriptionMenu live inside it would flip the outgoing content to the server list
+    // mid-exit. Latch the last non-null value so the exit animation shows consistent content.
+    var latchedSubscriptionMenu by remember { mutableStateOf(subscriptionMenu) }
+    if (subscriptionMenu != null) {
+        latchedSubscriptionMenu = subscriptionMenu
+    }
+
     AnimatedContent(
         targetState = subscriptionMenu != null,
         transitionSpec = {
@@ -603,13 +623,14 @@ private fun ServerSheetContent(
         },
         label = "subscriptionDrillIn",
     ) { showMenu ->
-        if (showMenu && subscriptionMenu != null) {
+        val menu = latchedSubscriptionMenu
+        if (showMenu && menu != null) {
             SubscriptionMenuContent(
-                subscription = subscriptionMenu,
+                subscription = menu,
                 theme = theme,
                 accent = accent,
                 onBack = onCloseSubscription,
-                onDelete = { subscriptionMenu.id?.let(onDeleteSubscription) },
+                onDelete = { menu.id?.let(onDeleteSubscription) },
             )
         } else {
             Column {
@@ -1337,7 +1358,13 @@ private fun SettingsSheetContent(
     theme: VpnColors,
     accent: Color,
     darkModeOn: Boolean,
+    routingMode: RoutingMode,
+    subscriptionAutoRefreshMode: SubscriptionAutoRefreshMode,
+    subscriptionAutoRefreshHours: Int,
     onToggleDarkMode: () -> Unit,
+    onSetRoutingMode: (RoutingMode) -> Unit,
+    onSetSubscriptionAutoRefreshMode: (SubscriptionAutoRefreshMode) -> Unit,
+    onSetSubscriptionAutoRefreshHours: (Int) -> Unit,
     onOpenLogs: () -> Unit,
 ) {
     Text(
@@ -1351,6 +1378,146 @@ private fun SettingsSheetContent(
 
     SettingsActionRow(theme, "Логи", "Открыть журнал sing-box", onOpenLogs, Modifier.testTag("logs_action_row"))
     ToggleRow(theme, accent, "Тёмная тема", "Спокойнее для глаз вечером", darkModeOn, onToggleDarkMode, Modifier.testTag("dark_mode_toggle"))
+    RoutingModeSection(theme, accent, routingMode, onSetRoutingMode)
+    AutoRefreshSection(
+        theme = theme,
+        accent = accent,
+        mode = subscriptionAutoRefreshMode,
+        hours = subscriptionAutoRefreshHours,
+        onSetMode = onSetSubscriptionAutoRefreshMode,
+        onSetHours = onSetSubscriptionAutoRefreshHours,
+    )
+}
+
+@Composable
+private fun RoutingModeSection(
+    theme: VpnColors,
+    accent: Color,
+    selectedMode: RoutingMode,
+    onSelect: (RoutingMode) -> Unit,
+) {
+    SettingsSectionTitle(theme, "Маршрутизация")
+    SettingsChoiceRow(theme, accent, "Полный VPN", "Весь трафик через выбранный сервер", selectedMode == RoutingMode.Full) {
+        onSelect(RoutingMode.Full)
+    }
+    SettingsChoiceRow(theme, accent, "Обход локалки", "Локальные сети и private IP идут напрямую", selectedMode == RoutingMode.BypassLocal) {
+        onSelect(RoutingMode.BypassLocal)
+    }
+    SettingsChoiceRow(theme, accent, "Обход RU", "Домены .ru, .su и .рф идут напрямую", selectedMode == RoutingMode.BypassRu) {
+        onSelect(RoutingMode.BypassRu)
+    }
+}
+
+@Composable
+private fun AutoRefreshSection(
+    theme: VpnColors,
+    accent: Color,
+    mode: SubscriptionAutoRefreshMode,
+    hours: Int,
+    onSetMode: (SubscriptionAutoRefreshMode) -> Unit,
+    onSetHours: (Int) -> Unit,
+) {
+    var hoursText by remember(hours) { mutableStateOf(hours.toString()) }
+
+    SettingsSectionTitle(theme, "Обновление подписок")
+    SettingsChoiceRow(theme, accent, "Авто", "По Profile-Update-Interval, иначе раз в 24 часа", mode == SubscriptionAutoRefreshMode.Auto) {
+        onSetMode(SubscriptionAutoRefreshMode.Auto)
+    }
+    SettingsChoiceRow(theme, accent, "Выкл", "Обновлять только вручную", mode == SubscriptionAutoRefreshMode.Off) {
+        onSetMode(SubscriptionAutoRefreshMode.Off)
+    }
+    SettingsChoiceRow(theme, accent, "Каждые N часов", "Фиксированный интервал для всех подписок", mode == SubscriptionAutoRefreshMode.EveryHours) {
+        onSetMode(SubscriptionAutoRefreshMode.EveryHours)
+    }
+
+    AnimatedVisibility(
+        visible = mode == SubscriptionAutoRefreshMode.EveryHours,
+        enter = expandVertically(tween(160)) + fadeIn(tween(160)),
+        exit = shrinkVertically(tween(120)) + fadeOut(tween(120)),
+    ) {
+        OutlinedTextField(
+            value = hoursText,
+            onValueChange = { raw ->
+                val digits = raw.filter(Char::isDigit).take(3)
+                hoursText = digits
+                digits.toIntOrNull()?.takeIf { it > 0 }?.let(onSetHours)
+            },
+            label = { Text("Часы") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            textStyle = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 14.sp, color = theme.ink),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = theme.pageBg,
+                unfocusedContainerColor = theme.pageBg,
+                focusedBorderColor = accent,
+                unfocusedBorderColor = theme.border,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .testTag("auto_refresh_hours_input"),
+        )
+    }
+}
+
+@Composable
+private fun SettingsSectionTitle(theme: VpnColors, title: String) {
+    Text(
+        text = title,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        color = theme.mutedInk,
+        modifier = Modifier.padding(top = 18.dp, bottom = 6.dp),
+    )
+}
+
+@Composable
+private fun SettingsChoiceRow(
+    theme: VpnColors,
+    accent: Color,
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {
+                    Haptics.click(context)
+                    onClick()
+                },
+            )
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(18.dp)
+                .clip(CircleShape)
+                .border(1.5.dp, if (selected) accent else theme.border, CircleShape)
+                .padding(4.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .background(accent),
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.Medium, fontSize = 14.5.sp, color = theme.ink)
+            Text(subtitle, fontSize = 12.sp, color = theme.mutedInk)
+        }
+    }
 }
 
 @Composable
