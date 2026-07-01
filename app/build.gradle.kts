@@ -18,6 +18,12 @@ android {
         versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
         versionName = System.getenv("VERSION_NAME") ?: "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Only modern 64-bit ARM devices are supported; drops the other 3 libbox.so
+        // copies (armeabi-v7a/x86/x86_64) that bloat the APK to ~200MB.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     val keystoreBase64 = System.getenv("KEYSTORE_BASE64")
@@ -40,7 +46,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (!keystoreBase64.isNullOrBlank()) {
                 signingConfig = signingConfigs.getByName("release")
