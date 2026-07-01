@@ -54,6 +54,7 @@ app/src/main/kotlin/karst/vpn/
 - Android SDK 36.
 - Android NDK, если нужно пересобрать `libbox.aar`.
 - Go, если нужно пересобрать `libbox.aar`.
+- [just](https://github.com/casey/just), опционально (алиасы для команд).
 
 Сборка debug APK:
 
@@ -67,6 +68,18 @@ app/src/main/kotlin/karst/vpn/
 .\gradlew.bat test
 ```
 
+Команды через just:
+
+```powershell
+just dbg         # assembleDebug
+just rel         # assembleRelease
+just test        # тесты
+just clean       # clean
+just lib v1.14.0 # пересборка libbox.aar под указанный тег sing-box
+just all         # test + release
+just             # список всех команд
+```
+
 Пересборка `libbox.aar` из sing-box:
 
 ```powershell
@@ -75,19 +88,20 @@ app/src/main/kotlin/karst/vpn/
 
 Скрипт использует `ANDROID_HOME` или `sdk.dir` из `local.properties`, а NDK берет из `ANDROID_NDK_HOME` либо из установленного SDK.
 
-## Release build
+## CI/CD
 
-Release-подпись берется из переменных окружения:
+Пуш тега `v*` (например `v1.0.0`) триггерит сборку release APK и загрузку в GitHub Releases.
+Имя APK: `karst-vpn-v{version}.apk`. Версия и versionCode выставляются из тега автоматически
+(тег `v1.2.3` → `versionName=1.2.3`, `versionCode=1002003`).
 
-```powershell
-$env:KEYSTORE_BASE64 = "<base64-keystore>"
-$env:KEYSTORE_PASSWORD = "<password>"
-$env:KEY_ALIAS = "<alias>"
-$env:KEY_PASSWORD = "<password>"
-.\gradlew.bat assembleRelease
-```
+Подпись через GitHub Secrets:
 
-Если `KEYSTORE_BASE64` не задан, release собирается без кастомной signing config.
+| Секрет | Значение |
+|---|---|
+| `KEYSTORE_BASE64` | `[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore"))` |
+| `KEYSTORE_PASSWORD` | пароль от keystore |
+| `KEY_ALIAS` | алиас ключа |
+| `KEY_PASSWORD` | пароль от ключа |
 
 ## Безопасность
 
