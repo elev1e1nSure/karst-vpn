@@ -284,6 +284,11 @@ private class FakeServerDao(private val db: FakeDatabaseState) : ServerDao {
         }
     }
     override suspend fun getById(id: String): ServerEntity? = db.servers[id]
+    override suspend fun getBySubscriptionId(subscriptionId: String): List<ServerEntity> =
+        db.servers.values
+            .filter { it.subscriptionId == subscriptionId }
+            .sortedWith(compareBy({ it.sortOrder }, { it.addedAtEpochMs }))
+
     override suspend fun deleteById(id: String) {
         db.servers.remove(id)
         db.serversFlow.value = db.servers.values.toList()

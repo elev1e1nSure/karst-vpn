@@ -3,7 +3,9 @@ package karst.vpn.ui
 import karst.vpn.R
 import karst.vpn.core.ConnectionPhase
 import karst.vpn.core.Haptics
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -254,7 +256,6 @@ private fun MainVpnScreen(
                     addServerError = state.addServerError,
                     addServerLoading = state.addServerLoading,
                     importMessage = state.importMessage,
-                    refreshAllVersion = state.refreshAllVersion,
                     refreshAllLoading = state.refreshAllLoading,
                     subscriptionMenu = subscriptionMenu,
                     onSelect = { id ->
@@ -531,7 +532,6 @@ private fun ServerSheetContent(
     addServerError: String?,
     addServerLoading: Boolean,
     importMessage: String?,
-    refreshAllVersion: Int,
     refreshAllLoading: Boolean,
     subscriptionMenu: UiSubscription?,
     onSelect: (String) -> Unit,
@@ -588,11 +588,6 @@ private fun ServerSheetContent(
             }
         }
         val listState = rememberLazyListState()
-        LaunchedEffect(refreshAllVersion) {
-            if (refreshAllVersion > 0 && listState.layoutInfo.totalItemsCount > 0) {
-                listState.animateScrollToItem(0)
-            }
-        }
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
@@ -601,6 +596,7 @@ private fun ServerSheetContent(
         ) {
             RefreshAllButton(
                 loading = refreshAllLoading,
+                enabled = !refreshAllLoading,
                 accent = accent,
                 onClick = onRefreshAll,
             )
@@ -615,6 +611,7 @@ private fun ServerSheetContent(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .animateContentSize(animationSpec = tween(durationMillis = 220))
                             .clip(RoundedCornerShape(16.dp))
                             .background(theme.cardBg)
                             .border(1.dp, theme.border, RoundedCornerShape(16.dp))
@@ -992,6 +989,7 @@ private fun SubscriptionDetailRow(
 @Composable
 private fun RefreshAllButton(
     loading: Boolean,
+    enabled: Boolean,
     accent: Color,
     onClick: () -> Unit,
 ) {
@@ -1002,11 +1000,12 @@ private fun RefreshAllButton(
             onClick()
         },
         pressedScale = 0.85f,
+        enabled = enabled,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .background(accent.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                .background(accent.copy(alpha = if (enabled) 0.1f else 0.06f), RoundedCornerShape(10.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             if (loading) {

@@ -33,7 +33,6 @@ data class VpnUiState(
     val addServerLoading: Boolean = false,
     val addServerError: String? = null,
     val importMessage: String? = null,
-    val refreshAllVersion: Int = 0,
     val refreshAllLoading: Boolean = false,
 )
 
@@ -55,7 +54,6 @@ private data class AddServerState(
 
 private data class RefreshAllState(
     val loading: Boolean = false,
-    val version: Int = 0,
 )
 
 class VpnViewModel(
@@ -144,7 +142,6 @@ class VpnViewModel(
             addServerLoading = addState.loading,
             addServerError = addState.error,
             importMessage = message,
-            refreshAllVersion = refreshAll.version,
             refreshAllLoading = refreshAll.loading,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VpnUiState())
@@ -239,8 +236,9 @@ class VpnViewModel(
     }
 
     fun refreshAllSubscriptions() {
+        if (refreshAllState.value.loading) return
         viewModelScope.launch {
-            refreshAllState.value = RefreshAllState(loading = true, version = refreshAllState.value.version)
+            refreshAllState.value = RefreshAllState(loading = true)
             importMessage.value = null
             val result = withContext(Dispatchers.IO) {
                 subscriptionRefresher.refreshAll()
@@ -248,11 +246,11 @@ class VpnViewModel(
             result
                 .onSuccess {
                     importMessage.value = it.message
-                    refreshAllState.value = refreshAllState.value.copy(loading = false, version = refreshAllState.value.version + 1)
+                    refreshAllState.value = refreshAllState.value.copy(loading = false)
                 }
                 .onFailure {
                     importMessage.value = it.message ?: "Не удалось обновить подписки"
-                    refreshAllState.value = refreshAllState.value.copy(loading = false, version = refreshAllState.value.version + 1)
+                    refreshAllState.value = refreshAllState.value.copy(loading = false)
                 }
         }
     }

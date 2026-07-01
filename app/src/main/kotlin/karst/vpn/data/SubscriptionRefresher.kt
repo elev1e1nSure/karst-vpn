@@ -2,6 +2,8 @@ package karst.vpn.data
 
 import androidx.room.withTransaction
 import java.util.UUID
+import karst.vpn.data.entities.ServerEntity
+import karst.vpn.link.VlessLink
 import karst.vpn.link.SubscriptionParser
 import karst.vpn.link.toImportSummary
 import karst.vpn.link.toServerEntity
@@ -37,10 +39,12 @@ class SubscriptionRefresher(
                 "Обновление не применено: подписка не вернула VLESS-серверы"
             }
             val now = System.currentTimeMillis()
-            val startOrder = servers.maxSortOrder() + 1
+            val existingServers = servers.getBySubscriptionId(id)
+            val existingByRawLink = existingServers.associateBy { it.rawLink }
+            val startOrder = existingServers.minOfOrNull { it.sortOrder } ?: (servers.maxSortOrder() + 1)
             val serverEntities = parsed.links.mapIndexed { index, link ->
-                link.toServerEntity(
-                    id = UUID.randomUUID().toString(),
+                link.toRefreshServerEntity(
+                    existing = existingByRawLink[link.raw],
                     subscriptionId = id,
                     sortOrder = startOrder + index,
                     now = now,
@@ -72,5 +76,28 @@ class SubscriptionRefresher(
             subscriptions.updateRefreshResult(id, null, e.message)
             throw e
         }
+    }
+}
+
+private fun VlessLink.toRefreshServerEntity(
+    existing: ServerEntity?,
+    subscriptionId: String,
+    sortOrder: Int,
+    now: Long,
+): ServerEntity {
+    val next = toServerEntity(
+        id = existing?.id ?: UUID.randomUUID().toString(),
+        subscriptionId = subscriptionId,
+        sortOrder = sortOrder,
+        now = existing?.addedAtEpochMs ?: now,
+    )
+    return if (existing == null) {
+        next
+    } else {
+        next.copy(
+            latencyMs = existing.latencyMs,
+            latencyStatus = existing.latencyStatus,
+            latencyMeasuredAtEpochMs = existing.latencyMeasuredAtEpochMs,
+        )
     }
 }

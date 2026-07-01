@@ -58,6 +58,9 @@ interface ServerDao {
     @Query("SELECT * FROM servers WHERE id = :id")
     suspend fun getById(id: String): ServerEntity?
 
+    @Query("SELECT * FROM servers WHERE subscriptionId = :subscriptionId ORDER BY sortOrder ASC, addedAtEpochMs ASC")
+    suspend fun getBySubscriptionId(subscriptionId: String): List<ServerEntity>
+
     @Query("DELETE FROM servers WHERE id = :id")
     suspend fun deleteById(id: String)
 
