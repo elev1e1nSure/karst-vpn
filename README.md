@@ -4,9 +4,9 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./karst_latest2.png">
+    <source media="(prefers-color-scheme: dark)" srcset="./karst_latest.png">
     <img
-      src="./karst_latest2.png"
+      src="./karst_latest.png"
       alt="Скриншот главного экрана Karst VPN"
       width="360"
       style="max-width: min(100%, 360px); aspect-ratio: 9 / 16; object-fit: contain; border-radius: 24px;"
