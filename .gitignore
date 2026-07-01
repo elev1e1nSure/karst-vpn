@@ -16,3 +16,4 @@ captures
 *.hprof
 emulator_*.log
 release.keystore
+/.claude
