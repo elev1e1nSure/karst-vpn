@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import karst.vpn.log.AppLogBuffer
+import karst.vpn.core.Haptics
 
 @Composable
 fun LogsScreen(
@@ -40,6 +42,7 @@ fun LogsScreen(
 ) {
     val lines by AppLogBuffer.lines.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -52,7 +55,10 @@ fun LogsScreen(
             modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Pressable(onClick = onBack) {
+            Pressable(onClick = {
+                Haptics.click(context)
+                onBack()
+            }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад", tint = theme.ink)
             }
             Spacer(modifier = Modifier.width(14.dp))
@@ -64,6 +70,7 @@ fun LogsScreen(
                 modifier = Modifier.weight(1f),
             )
             IconButton(onClick = {
+                Haptics.click(context)
                 clipboard.setText(AnnotatedString(lines.joinToString("\n")))
             }) {
                 Icon(
@@ -74,6 +81,7 @@ fun LogsScreen(
             }
             Spacer(modifier = Modifier.width(14.dp))
             IconButton(onClick = {
+                Haptics.medium(context)
                 AppLogBuffer.clear()
             }) {
                 Icon(

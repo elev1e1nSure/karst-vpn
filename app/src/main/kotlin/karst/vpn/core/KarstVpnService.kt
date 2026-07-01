@@ -12,9 +12,6 @@ import android.net.VpnService
 import android.os.Build
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -106,7 +103,7 @@ class KarstVpnService : VpnService(), CommandServerHandler {
             val connectedAt = System.currentTimeMillis()
             SocketProtectorRegistry.current = SocketProtector { socket -> protect(socket) }
             ConnectionStateHolder.connected(connectedAt)
-            vibrateShort()
+            Haptics.heavy(this)
             NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification("Подключено", connectedAt))
             AppLogBuffer.append("VPN connected")
         }.onFailure {
@@ -129,7 +126,7 @@ class KarstVpnService : VpnService(), CommandServerHandler {
         }
         SocketProtectorRegistry.current = null
         ConnectionStateHolder.off(error)
-        vibrateShort()
+        Haptics.heavy(this@KarstVpnService)
         stopForegroundCompat()
         stopSelf()
     }
@@ -151,18 +148,6 @@ class KarstVpnService : VpnService(), CommandServerHandler {
         }
 
     override fun setSystemProxyEnabled(enabled: Boolean) = Unit
-
-    @Suppress("DEPRECATION")
-    private fun vibrateShort() {
-        val effect = VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            manager.defaultVibrator.vibrate(effect)
-        } else {
-            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            vibrator.vibrate(effect)
-        }
-    }
 
     private fun buildNotification(status: String, connectedSinceMillis: Long?): android.app.Notification {
         val openIntent = PendingIntent.getActivity(

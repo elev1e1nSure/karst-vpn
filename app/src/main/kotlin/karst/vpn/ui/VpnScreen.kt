@@ -2,6 +2,7 @@ package karst.vpn.ui
 
 import karst.vpn.R
 import karst.vpn.core.ConnectionPhase
+import karst.vpn.core.Haptics
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -67,6 +68,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
@@ -217,7 +219,7 @@ private fun MainVpnScreen(
                 viewModel.clearAddError()
                 viewModel.clearImportMessage()
             },
-            sheetState = rememberModalBottomSheetState(),
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             shape = sheetShape,
             containerColor = theme.appBg,
             dragHandle = dragHandle,
@@ -262,7 +264,7 @@ private fun MainVpnScreen(
     if (settingsVisible) {
         ModalBottomSheet(
             onDismissRequest = { settingsVisible = false },
-            sheetState = rememberModalBottomSheetState(),
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             shape = sheetShape,
             containerColor = theme.appBg,
             dragHandle = dragHandle,
@@ -287,6 +289,7 @@ private fun MainVpnScreen(
 
 @Composable
 private fun Header(theme: VpnColors, onSettingsClick: () -> Unit) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -294,7 +297,10 @@ private fun Header(theme: VpnColors, onSettingsClick: () -> Unit) {
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Pressable(onClick = onSettingsClick, pressedScale = 0.92f, modifier = Modifier.testTag("settings_btn")) {
+        Pressable(onClick = {
+            Haptics.click(context)
+            onSettingsClick()
+        }, pressedScale = 0.92f, modifier = Modifier.testTag("settings_btn")) {
             Box(
                 modifier = Modifier
                     .size(46.dp)
@@ -617,6 +623,7 @@ private fun SubscriptionGroupHeader(
     accent: Color,
     onRefresh: (() -> Unit)? = null,
 ) {
+    val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -654,6 +661,7 @@ private fun SubscriptionGroupHeader(
             Pressable(
                 onClick = {
                     isRefreshing = true
+                    Haptics.medium(context)
                     onRefresh()
                 },
                 pressedScale = 0.85f,
@@ -693,7 +701,11 @@ private fun ServerRow(
     onSelect: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    Pressable(onClick = onSelect, modifier = Modifier.fillMaxWidth()) {
+    val context = LocalContext.current
+    Pressable(onClick = {
+        Haptics.click(context)
+        onSelect()
+    }, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -742,6 +754,7 @@ private fun AddServerForm(
     onSubmit: () -> Unit,
 ) {
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -802,7 +815,10 @@ private fun AddServerForm(
                     Text("Отмена", fontWeight = FontWeight.Medium, fontSize = 13.sp, color = theme.mutedInk)
                 }
             }
-            Pressable(onClick = onSubmit, enabled = !loading, modifier = Modifier.weight(1f).testTag("add_server_submit")) {
+            Pressable(onClick = {
+                Haptics.medium(context)
+                onSubmit()
+            }, enabled = !loading, modifier = Modifier.weight(1f).testTag("add_server_submit")) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -850,6 +866,7 @@ private fun SettingsActionRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     Column(modifier = modifier) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(theme.border))
         Row(
@@ -858,7 +875,10 @@ private fun SettingsActionRow(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onClick,
+                    onClick = {
+                        Haptics.click(context)
+                        onClick()
+                    },
                 )
                 .padding(vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -888,6 +908,11 @@ private fun ToggleRow(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val toggleWithHaptic: () -> Unit = {
+        Haptics.click(context)
+        onToggle()
+    }
     Column(modifier = modifier) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(theme.border))
         Row(
@@ -896,7 +921,7 @@ private fun ToggleRow(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onToggle,
+                    onClick = toggleWithHaptic,
                 )
                 .padding(vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -906,7 +931,7 @@ private fun ToggleRow(
                 Text(title, fontWeight = FontWeight.Medium, fontSize = 14.5.sp, color = theme.ink)
                 Text(subtitle, fontSize = 12.sp, color = theme.mutedInk)
             }
-            MiniSwitch(checked = checked, accent = accent, theme = theme, onToggle = onToggle)
+            MiniSwitch(checked = checked, accent = accent, theme = theme, onToggle = toggleWithHaptic)
         }
     }
 }
