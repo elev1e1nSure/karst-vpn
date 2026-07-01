@@ -1599,9 +1599,9 @@ private fun SettingsChoiceRow(
                 )
                 .padding(vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(title, fontWeight = FontWeight.Medium, fontSize = 14.5.sp, color = theme.ink)
                 Text(subtitle, fontSize = 12.sp, color = theme.mutedInk)
             }
