@@ -8,6 +8,7 @@ import karst.vpn.link.parseVlessLink
 import karst.vpn.link.toImportSummary
 import karst.vpn.link.toServerEntity
 import karst.vpn.net.SubscriptionFetcher
+import karst.vpn.log.AppLog
 
 data class ImportResult(
     val firstServerId: String?,
@@ -23,6 +24,7 @@ class ImportCoordinator(
 
     suspend fun importInput(rawInput: String): Result<ImportResult> = runCatching {
         val text = rawInput.trim()
+        AppLog.info(AppLog.Category.LINK, "importInput called with input: $text")
         when {
             text.startsWith("vless://", ignoreCase = true) -> importManualServer(text)
             text.startsWith("https://", ignoreCase = true) -> importSubscription(text).toImportResult()
@@ -32,6 +34,7 @@ class ImportCoordinator(
     }
 
     private suspend fun importManualServer(rawLink: String): ImportResult {
+        AppLog.info(AppLog.Category.LINK, "importManualServer: parsing VLESS link")
         val link = parseVlessLink(rawLink).getOrThrow()
         val now = System.currentTimeMillis()
         val entity = link.toServerEntity(
@@ -41,14 +44,18 @@ class ImportCoordinator(
             now = now,
         )
         servers.upsert(entity)
+        AppLog.info(AppLog.Category.LINK, "importManualServer successful. Server id=${entity.id} host=${entity.host}:${entity.port}")
         return ImportResult(firstServerId = entity.id, message = "Сервер добавлен")
     }
 
     private suspend fun importSubscription(url: String): ImportSummary {
+        AppLog.info(AppLog.Category.NET, "importSubscription: looking up existing subscription for URL: $url")
         val existing = subscriptions.getByUrl(url)
         if (existing != null) {
+            AppLog.info(AppLog.Category.NET, "importSubscription: subscription already exists (id=${existing.id}), refreshing")
             return refreshExistingSubscription(existing)
         }
+        AppLog.info(AppLog.Category.NET, "importSubscription: importing new subscription")
         return importNewSubscription(url)
     }
 
@@ -89,6 +96,7 @@ class ImportCoordinator(
             servers.upsertAll(serverEntities)
         }
 
+        AppLog.info(AppLog.Category.NET, "importNewSubscription successful. id=$subscriptionId. Imported ${serverEntities.size} servers.")
         return parsed.toImportSummary(serverEntities.firstOrNull()?.id)
     }
 
@@ -126,6 +134,7 @@ class ImportCoordinator(
             )
         }
 
+        AppLog.info(AppLog.Category.NET, "refreshExistingSubscription successful. id=${subscription.id}. Imported ${serverEntities.size} servers.")
         val summary = parsed.toImportSummary(serverEntities.firstOrNull()?.id)
         return summary.copy(message = "Подписка уже была добавлена, обновлено")
     }

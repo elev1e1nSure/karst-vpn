@@ -25,7 +25,10 @@ import io.nekohasekai.libbox.SystemProxyStatus
 import karst.vpn.KarstApplication
 import karst.vpn.MainActivity
 import karst.vpn.R
+import karst.vpn.log.AppLog
 import karst.vpn.log.AppLogBuffer
+import karst.vpn.data.RoutingMode
+import karst.vpn.data.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -41,10 +44,15 @@ class KarstVpnService : VpnService(), CommandServerHandler {
     private var commandServer: CommandServer? = null
     var activeTunDescriptor: ParcelFileDescriptor? = null
 
+    private var activeServerId: String? = null
+    private var currentRoutingMode: RoutingMode? = null
+    private var currentDnsDohUrl: String? = null
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         setupLibbox(applicationContext)
+        observeSettingsChanges()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -71,7 +79,7 @@ class KarstVpnService : VpnService(), CommandServerHandler {
         super.onBind(intent)
 
     override fun onDestroy() {
-        AppLogBuffer.append("onDestroy() called")
+        AppLog.info(AppLog.Category.SERVICE, "onDestroy() called")
         try {
             runBlocking { stopTunnel() }
         } finally {
@@ -81,6 +89,7 @@ class KarstVpnService : VpnService(), CommandServerHandler {
     }
 
     override fun onRevoke() {
+        AppLog.warn(AppLog.Category.SERVICE, "VPN permission revoked")
         scope.launch { stopTunnel("VPN permission revoked") }
     }
 
@@ -100,6 +109,11 @@ class KarstVpnService : VpnService(), CommandServerHandler {
                 nextServer.start()
                 nextServer.startOrReloadService(config, OverrideOptions())
                 commandServer = nextServer
+
+                activeServerId = serverId
+                currentRoutingMode = routingMode
+                currentDnsDohUrl = dnsUrl
+
                 server.displayName
             }
         }.onSuccess { serverName ->
@@ -111,9 +125,9 @@ class KarstVpnService : VpnService(), CommandServerHandler {
                 NOTIFICATION_ID,
                 buildConnectedNotification(serverName, connectedAt),
             )
-            AppLogBuffer.append("VPN connected")
+            AppLog.info(AppLog.Category.VPN, "VPN connected to $serverName")
         }.onFailure {
-            AppLogBuffer.append("VPN start failed: ${it.message}")
+            AppLog.error(AppLog.Category.VPN, "VPN start failed", it)
             stopTunnel(it.message ?: "Не удалось подключиться")
         }
     }
@@ -121,20 +135,68 @@ class KarstVpnService : VpnService(), CommandServerHandler {
     private suspend fun stopTunnel(error: String? = null) = withContext(NonCancellable) {
         withContext(Dispatchers.IO) {
             runCatching { commandServer?.closeService() }
-                .onFailure { AppLogBuffer.append("Failed to close libbox service: ${it.message}") }
+                .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close libbox service", it) }
             runCatching { commandServer?.close() }
-                .onFailure { AppLogBuffer.append("Failed to close command server: ${it.message}") }
+                .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close command server", it) }
             commandServer = null
 
             runCatching { activeTunDescriptor?.close() }
-                .onFailure { AppLogBuffer.append("Failed to close TUN descriptor: ${it.message}") }
+                .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close TUN descriptor", it) }
             activeTunDescriptor = null
         }
+        activeServerId = null
+        currentRoutingMode = null
+        currentDnsDohUrl = null
+
         SocketProtectorRegistry.current = null
         ConnectionStateHolder.off(error)
         Haptics.heavy(this@KarstVpnService)
         stopForegroundCompat()
         stopSelf()
+    }
+
+    private fun observeSettingsChanges() {
+        val app = KarstApplication.instance
+        scope.launch {
+            app.container.settingsRepository.routingMode.collect { newMode ->
+                if (ConnectionStateHolder.phase.value == ConnectionPhase.On &&
+                    newMode != currentRoutingMode &&
+                    activeServerId != null
+                ) {
+                    AppLog.info(AppLog.Category.VPN, "Routing mode changed to $newMode, reloading tunnel")
+                    reloadTunnel(newMode, currentDnsDohUrl ?: SettingsRepository.DEFAULT_DNS_DOH_URL)
+                }
+            }
+        }
+        scope.launch {
+            app.container.settingsRepository.dnsDohUrl.collect { newDnsUrl ->
+                if (ConnectionStateHolder.phase.value == ConnectionPhase.On &&
+                    newDnsUrl != currentDnsDohUrl &&
+                    activeServerId != null
+                ) {
+                    AppLog.info(AppLog.Category.VPN, "DNS DoH URL changed, reloading tunnel")
+                    reloadTunnel(currentRoutingMode ?: RoutingMode.BypassRu, newDnsUrl)
+                }
+            }
+        }
+    }
+
+    private suspend fun reloadTunnel(newMode: RoutingMode, newDnsUrl: String) {
+        val serverId = activeServerId ?: return
+        runCatching {
+            withContext(Dispatchers.IO) {
+                val app = KarstApplication.instance
+                val server = app.container.serverRepository.getServer(serverId) ?: error("Сервер не найден")
+                val config = VpnConfigBuilder.build(server, newDnsUrl, newMode)
+                commandServer?.startOrReloadService(config, OverrideOptions())
+                currentRoutingMode = newMode
+                currentDnsDohUrl = newDnsUrl
+            }
+        }.onSuccess {
+            AppLog.info(AppLog.Category.VPN, "VPN tunnel reloaded successfully with mode: $newMode")
+        }.onFailure {
+            AppLog.error(AppLog.Category.VPN, "VPN tunnel reload failed", it)
+        }
     }
 
     override fun serviceStop() {
@@ -144,7 +206,7 @@ class KarstVpnService : VpnService(), CommandServerHandler {
     override fun serviceReload() = Unit
 
     override fun writeDebugMessage(message: String) {
-        AppLogBuffer.append(message)
+        AppLog.debug(AppLog.Category.CORE, "[sing-box] $message")
     }
 
     override fun getSystemProxyStatus(): SystemProxyStatus =

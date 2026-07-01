@@ -8,6 +8,7 @@ import karst.vpn.link.SubscriptionParser
 import karst.vpn.link.toImportSummary
 import karst.vpn.link.toServerEntity
 import karst.vpn.net.SubscriptionFetcher
+import karst.vpn.log.AppLog
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
@@ -19,8 +20,12 @@ class SubscriptionRefresher(
     private val subscriptions = database.subscriptions()
 
     suspend fun refreshAll(): Result<ImportSummary> = runCatching {
+        AppLog.info(AppLog.Category.NET, "Starting refresh of all subscriptions")
         val ids = subscriptions.getAllIds()
-        if (ids.isEmpty()) return@runCatching ImportSummary(imported = 0, skipped = 0, firstServerId = null, message = "")
+        if (ids.isEmpty()) {
+            AppLog.info(AppLog.Category.NET, "No subscriptions to refresh")
+            return@runCatching ImportSummary(imported = 0, skipped = 0, firstServerId = null, message = "")
+        }
         val summaries = coroutineScope {
             ids.map { id -> async { refresh(id) } }.map { it.await() }
         }
@@ -32,12 +37,14 @@ class SubscriptionRefresher(
                 if (summary.firstServerId != null) lastFirstServerId = summary.firstServerId
             }
         }
+        AppLog.info(AppLog.Category.NET, "Finished refresh of all subscriptions. Total imported: $totalImported")
         ImportSummary(imported = totalImported, skipped = 0, firstServerId = lastFirstServerId, message = "")
     }
 
     suspend fun refresh(id: String): Result<ImportSummary> = runCatching {
         try {
             val subscription = subscriptions.getById(id) ?: error("Подписка не найдена")
+            AppLog.info(AppLog.Category.NET, "Refreshing subscription: id=$id name=${subscription.displayName}")
             val fetchResult = fetcher.fetch(subscription.url).getOrThrow()
             val parsed = SubscriptionParser.parse(fetchResult.body)
             require(parsed.links.isNotEmpty()) {
@@ -76,8 +83,10 @@ class SubscriptionRefresher(
                 )
             }
 
+            AppLog.info(AppLog.Category.NET, "Subscription refreshed successfully: id=$id name=${subscription.displayName}. Parsed ${parsed.links.size} servers.")
             parsed.toImportSummary(serverEntities.firstOrNull()?.id)
         } catch (e: Throwable) {
+            AppLog.error(AppLog.Category.NET, "Failed to refresh subscription: id=$id", e)
             subscriptions.updateRefreshResult(id, null, e.message)
             throw e
         }

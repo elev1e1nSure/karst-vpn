@@ -4,6 +4,7 @@ import java.io.IOException
 import java.net.URI
 import java.util.Base64
 import java.util.concurrent.TimeUnit
+import karst.vpn.log.AppLog
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.Buffer
@@ -37,6 +38,7 @@ class NetworkSubscriptionFetcher(
         .build(),
 ) : SubscriptionFetcher {
     override fun fetch(url: String): Result<SubscriptionFetchResult> = runCatching {
+        AppLog.info(AppLog.Category.NET, "Fetching subscription from $url")
         requireHttpsUrl(url)
         val request = Request.Builder().url(url).get().build()
         client.newCall(request).execute().use { response ->
@@ -44,7 +46,8 @@ class NetworkSubscriptionFetcher(
                 throw IOException("HTTP ${response.code}")
             }
             val body = response.body
-            if (body.contentLength() > MAX_SUBSCRIPTION_BYTES) {
+            val length = body.contentLength()
+            if (length > MAX_SUBSCRIPTION_BYTES) {
                 throw IOException("Subscription response is too large")
             }
             val charset = body.contentType()?.charset(Charsets.UTF_8) ?: Charsets.UTF_8
@@ -59,8 +62,10 @@ class NetworkSubscriptionFetcher(
                     throw IOException("Subscription response is too large")
                 }
             }
+            val content = buffer.readString(charset)
+            AppLog.info(AppLog.Category.NET, "Fetched subscription successfully from $url (size=${total} bytes)")
             SubscriptionFetchResult(
-                body = buffer.readString(charset),
+                body = content,
                 metadata = SubscriptionMetadata(
                     profileTitle = response.header("Profile-Title")?.decodeHeaderValue(),
                     announce = response.header("Announce")?.decodeHeaderValue(),
@@ -74,6 +79,8 @@ class NetworkSubscriptionFetcher(
                 ),
             )
         }
+    }.onFailure {
+        AppLog.error(AppLog.Category.NET, "Failed to fetch subscription from $url", it)
     }
 
     private fun requireHttpsUrl(url: String) {

@@ -69,6 +69,7 @@ object VpnConfigBuilder {
         put("final", "remote-doh")
         put("strategy", "prefer_ipv4")
         put("independent_cache", true)
+        put("reverse_mapping", true)
     }
 
     private fun tunInbound(): JsonObject = buildJsonObject {
