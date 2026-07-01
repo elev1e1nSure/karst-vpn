@@ -3,9 +3,25 @@ package karst.vpn.ui
 import karst.vpn.R
 import karst.vpn.core.ConnectionPhase
 import karst.vpn.core.Haptics
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -125,20 +141,30 @@ fun VpnScreen(
     }
 
     MaterialTheme(colorScheme = colorScheme) {
-        if (route == Route.Logs) {
-            LogsScreen(theme = theme, onBack = { route = Route.Main })
-        } else {
-            MainVpnScreen(
-                state = state,
-                viewModel = viewModel,
-                modifier = modifier,
-                theme = theme,
-                accent = accent,
-                mood = mood,
-                onOpenLogs = { route = Route.Logs },
-                onConnectRequest = onConnectRequest,
-                onDisconnectRequest = onDisconnectRequest,
-            )
+        AnimatedContent(
+            targetState = route,
+            transitionSpec = {
+                val forward = targetState == Route.Logs
+                (slideInHorizontally(tween(220)) { width -> if (forward) width / 3 else -width / 3 } + fadeIn(tween(220)))
+                    .togetherWith(slideOutHorizontally(tween(220)) { width -> if (forward) -width / 3 else width / 3 } + fadeOut(tween(160)))
+            },
+            label = "routeTransition",
+        ) { currentRoute ->
+            if (currentRoute == Route.Logs) {
+                LogsScreen(theme = theme, onBack = { route = Route.Main })
+            } else {
+                MainVpnScreen(
+                    state = state,
+                    viewModel = viewModel,
+                    modifier = modifier,
+                    theme = theme,
+                    accent = accent,
+                    mood = mood,
+                    onOpenLogs = { route = Route.Logs },
+                    onConnectRequest = onConnectRequest,
+                    onDisconnectRequest = onDisconnectRequest,
+                )
+            }
         }
     }
 }
@@ -435,12 +461,25 @@ private fun ConnectButton(
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.97f else 1f, label = "buttonScale")
 
+    val infiniteTransition = rememberInfiniteTransition(label = "connectingPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.10f,
+        targetValue = 0.24f,
+        animationSpec = infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "pulseAlpha",
+    )
+    val ringAlpha = when {
+        isConnected -> 0.16f
+        isConnecting -> pulseAlpha
+        else -> 0f
+    }
+
     Box(modifier = Modifier.size(208.dp), contentAlignment = Alignment.Center) {
         Box(
             modifier = Modifier
                 .size(168.dp)
                 .clip(CircleShape)
-                .background(accent.copy(alpha = if (isConnected) 0.16f else 0f)),
+                .background(accent.copy(alpha = ringAlpha)),
         )
 
         Box(
@@ -545,137 +584,157 @@ private fun ServerSheetContent(
     onChangeAddServerValue: (String) -> Unit,
     onSubmitAddServer: () -> Unit,
 ) {
-    if (subscriptionMenu != null) {
-        SubscriptionMenuContent(
-            subscription = subscriptionMenu,
-            theme = theme,
-            onBack = onCloseSubscription,
-            onDelete = { subscriptionMenu.id?.let(onDeleteSubscription) },
-        )
-        return
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "Выбор сервера",
-            fontFamily = FontFamily.Serif,
-            fontWeight = FontWeight.Medium,
-            fontSize = 17.sp,
-            color = theme.ink,
-        )
-    }
-
-    if (groups.isEmpty()) {
-        Text(
-            "Список пуст. Добавь VLESS-ссылку или URL подписки ниже.",
-            fontSize = 13.sp,
-            color = theme.mutedInk,
-            modifier = Modifier.padding(bottom = 12.dp),
-        )
-    } else {
-        // Material3 ModalBottomSheet forwards any scroll delta the LazyColumn doesn't
-        // consume (e.g. at the list edges) to its own drag handling, which makes the
-        // sheet jump toward dismiss mid-scroll. Swallowing unconsumed post-scroll here
-        // keeps drag-to-dismiss limited to the handle instead of fighting the list.
-        val listNestedScrollConnection = remember {
-            object : NestedScrollConnection {
-                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                    return available
+    AnimatedContent(
+        targetState = subscriptionMenu != null,
+        transitionSpec = {
+            val forward = targetState
+            (slideInHorizontally(tween(200)) { width -> if (forward) width / 4 else -width / 4 } + fadeIn(tween(200)))
+                .togetherWith(slideOutHorizontally(tween(200)) { width -> if (forward) -width / 4 else width / 4 } + fadeOut(tween(150)))
+        },
+        label = "subscriptionDrillIn",
+    ) { showMenu ->
+        if (showMenu && subscriptionMenu != null) {
+            SubscriptionMenuContent(
+                subscription = subscriptionMenu,
+                theme = theme,
+                onBack = onCloseSubscription,
+                onDelete = { subscriptionMenu.id?.let(onDeleteSubscription) },
+            )
+        } else {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Выбор сервера",
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 17.sp,
+                        color = theme.ink,
+                    )
                 }
-            }
-        }
-        val listState = rememberLazyListState()
 
-        RefreshAllButton(
-            loading = refreshAllLoading,
-            enabled = !refreshAllLoading,
-            accent = accent,
-            onClick = onRefreshAll,
-            modifier = Modifier.padding(bottom = 6.dp),
-        )
-        LazyColumn(
-            modifier = Modifier.heightIn(max = 360.dp).nestedScroll(listNestedScrollConnection),
-            state = listState,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            groups.forEach { group ->
-                item(key = "group-${group.id}") {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .animateContentSize(animationSpec = tween(durationMillis = 220))
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(theme.cardBg)
-                            .border(1.dp, theme.border, RoundedCornerShape(16.dp))
-                            .padding(vertical = 4.dp)
+                if (groups.isEmpty()) {
+                    Text(
+                        "Список пуст. Добавь VLESS-ссылку или URL подписки ниже.",
+                        fontSize = 13.sp,
+                        color = theme.mutedInk,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                } else {
+                    // Material3 ModalBottomSheet forwards any scroll delta the LazyColumn doesn't
+                    // consume (e.g. at the list edges) to its own drag handling, which makes the
+                    // sheet jump toward dismiss mid-scroll. Swallowing unconsumed post-scroll here
+                    // keeps drag-to-dismiss limited to the handle instead of fighting the list.
+                    val listNestedScrollConnection = remember {
+                        object : NestedScrollConnection {
+                            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                                return available
+                            }
+                        }
+                    }
+                    val listState = rememberLazyListState()
+
+                    RefreshAllButton(
+                        loading = refreshAllLoading,
+                        enabled = !refreshAllLoading,
+                        accent = accent,
+                        onClick = onRefreshAll,
+                        modifier = Modifier.padding(bottom = 6.dp),
+                    )
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 360.dp).nestedScroll(listNestedScrollConnection),
+                        state = listState,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        SubscriptionGroupHeader(
-                            name = group.name,
-                            announce = group.announce,
-                            theme = theme,
-                            accent = accent,
-                            onRefresh = null,
-                            onOpenMenu = group.id?.let { id -> { onOpenSubscription(id) } },
-                        )
-                        group.servers.forEach { server ->
-                            ServerRow(
-                                server = server,
-                                isSelected = server.id == selectedServerId,
-                                theme = theme,
-                                accent = accent,
-                                onSelect = { onSelect(server.id) },
-                                onRemove = { onRemove(server.id) },
-                            )
+                        groups.forEach { group ->
+                            item(key = "group-${group.id}") {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .animateContentSize(animationSpec = tween(durationMillis = 220))
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(theme.cardBg)
+                                        .border(1.dp, theme.border, RoundedCornerShape(16.dp))
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    SubscriptionGroupHeader(
+                                        name = group.name,
+                                        announce = group.announce,
+                                        theme = theme,
+                                        accent = accent,
+                                        onRefresh = null,
+                                        onOpenMenu = group.id?.let { id -> { onOpenSubscription(id) } },
+                                    )
+                                    group.servers.forEach { server ->
+                                        ServerRow(
+                                            server = server,
+                                            isSelected = server.id == selectedServerId,
+                                            theme = theme,
+                                            accent = accent,
+                                            onSelect = { onSelect(server.id) },
+                                            onRemove = { onRemove(server.id) },
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-            }
-        }
-    }
 
-    importMessage?.takeIf { it.isNotBlank() }?.let {
-        Text(it, fontSize = 12.sp, color = accent, modifier = Modifier.padding(vertical = 8.dp))
-    }
-
-    Spacer(modifier = Modifier.height(6.dp))
-
-    if (addServerOpen) {
-        AddServerForm(
-            theme = theme,
-            accent = accent,
-            value = addServerValue,
-            error = addServerError,
-            loading = addServerLoading,
-            onChangeValue = onChangeAddServerValue,
-            onCancel = onCancelAddServer,
-            onSubmit = onSubmitAddServer,
-        )
-    } else {
-        Pressable(onClick = onOpenAddServer, modifier = Modifier.fillMaxWidth().testTag("open_add_server_btn")) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(1.5.dp, theme.border, RoundedCornerShape(14.dp))
-                    .padding(horizontal = 10.dp, vertical = 13.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(
-                    modifier = Modifier.size(22.dp).clip(CircleShape).background(theme.cardBg),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, tint = theme.mutedInk, modifier = Modifier.size(14.dp))
+                importMessage?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, fontSize = 12.sp, color = accent, modifier = Modifier.padding(vertical = 8.dp))
                 }
-                Text(
-                    "Добавить VLESS или подписку",
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                    color = theme.mutedInk,
-                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                AnimatedContent(
+                    targetState = addServerOpen,
+                    transitionSpec = {
+                        (fadeIn(tween(180)) + expandVertically(tween(200)))
+                            .togetherWith(fadeOut(tween(120)) + shrinkVertically(tween(200)))
+                    },
+                    label = "addServerReveal",
+                ) { isOpen ->
+                    if (isOpen) {
+                        AddServerForm(
+                            theme = theme,
+                            accent = accent,
+                            value = addServerValue,
+                            error = addServerError,
+                            loading = addServerLoading,
+                            onChangeValue = onChangeAddServerValue,
+                            onCancel = onCancelAddServer,
+                            onSubmit = onSubmitAddServer,
+                        )
+                    } else {
+                        Pressable(onClick = onOpenAddServer, modifier = Modifier.fillMaxWidth().testTag("open_add_server_btn")) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .border(1.5.dp, theme.border, RoundedCornerShape(14.dp))
+                                    .padding(horizontal = 10.dp, vertical = 13.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(22.dp).clip(CircleShape).background(theme.cardBg),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(Icons.Filled.Add, contentDescription = null, tint = theme.mutedInk, modifier = Modifier.size(14.dp))
+                                }
+                                Text(
+                                    "Добавить VLESS или подписку",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 14.sp,
+                                    color = theme.mutedInk,
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1065,7 +1124,11 @@ private fun ServerRow(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(server.latencyLabel, fontSize = 14.sp, color = theme.mutedInk)
             }
-            if (isSelected) {
+            AnimatedVisibility(
+                visible = isSelected,
+                enter = scaleIn(tween(180), initialScale = 0.6f) + fadeIn(tween(180)),
+                exit = scaleOut(tween(120), targetScale = 0.6f) + fadeOut(tween(100)),
+            ) {
                 Icon(Icons.Filled.Check, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
             }
             if (server.isCustom) {
