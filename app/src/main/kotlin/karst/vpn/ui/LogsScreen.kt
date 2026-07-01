@@ -4,8 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,16 +22,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -42,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import karst.vpn.log.AppLogBuffer
-import kotlinx.coroutines.delay
 
 @Composable
 fun LogsScreen(
@@ -51,21 +44,6 @@ fun LogsScreen(
 ) {
     val lines by AppLogBuffer.lines.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
-    var copyDone by remember { mutableStateOf(false) }
-    var clearDone by remember { mutableStateOf(false) }
-
-    LaunchedEffect(copyDone) {
-        if (copyDone) { delay(1000); copyDone = false }
-    }
-    LaunchedEffect(clearDone) {
-        if (clearDone) { delay(1000); clearDone = false }
-    }
-
-    val copyScale by animateFloatAsState(if (copyDone) 1.25f else 1f, label = "copyScale")
-    val copyColor by animateColorAsState(if (copyDone) DefaultAccent else theme.mutedInk, label = "copyColor")
-
-    val clearScale by animateFloatAsState(if (clearDone) 1.25f else 1f, label = "clearScale")
-    val clearColor by animateColorAsState(if (clearDone) DefaultAccent else theme.mutedInk, label = "clearColor")
 
     Column(
         modifier = Modifier
@@ -89,33 +67,23 @@ fun LogsScreen(
                 color = theme.ink,
                 modifier = Modifier.weight(1f),
             )
-            Pressable(onClick = {
+            IconButton(onClick = {
                 clipboard.setText(AnnotatedString(lines.joinToString("\n")))
-                copyDone = true
             }) {
                 Icon(
                     imageVector = Icons.Filled.ContentCopy,
                     contentDescription = "Копировать",
-                    tint = copyColor,
-                    modifier = Modifier.graphicsLayer {
-                        scaleX = copyScale
-                        scaleY = copyScale
-                    }
+                    tint = theme.mutedInk,
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
-            Pressable(onClick = {
+            IconButton(onClick = {
                 AppLogBuffer.clear()
-                clearDone = true
             }) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = "Очистить",
-                    tint = clearColor,
-                    modifier = Modifier.graphicsLayer {
-                        scaleX = clearScale
-                        scaleY = clearScale
-                    }
+                    tint = theme.mutedInk,
                 )
             }
         }
