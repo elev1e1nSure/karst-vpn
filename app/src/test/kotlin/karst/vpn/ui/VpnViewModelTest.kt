@@ -24,6 +24,7 @@ import karst.vpn.data.entities.SubscriptionEntity
 import karst.vpn.net.LatencyProbe
 import karst.vpn.net.LatencyResult
 import karst.vpn.net.SubscriptionFetcher
+import karst.vpn.net.SubscriptionFetchResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -154,7 +155,7 @@ class VpnViewModelTest {
     fun testAddSubscriptionSuccess() = testScope.runTest {
         val url = "https://example.com/sub"
         val uuid = "11111111-1111-4111-8111-111111111111"
-        fetcher.result = Result.success("vless://$uuid@s1.com:443?security=none#Sub1")
+        fetcher.result = Result.success(SubscriptionFetchResult("vless://$uuid@s1.com:443?security=none#Sub1"))
 
         viewModel.addServerInput(url)
 
@@ -299,9 +300,9 @@ private class FakeKarstDatabase(
 }
 
 private class FakeSubscriptionFetcher : SubscriptionFetcher {
-    var result: Result<String> = Result.success("")
+    var result: Result<SubscriptionFetchResult> = Result.success(SubscriptionFetchResult(""))
 
-    override fun fetch(url: String): Result<String> = result
+    override fun fetch(url: String): Result<SubscriptionFetchResult> = result
 }
 
 private class FakeLatencyProbe : LatencyProbe {

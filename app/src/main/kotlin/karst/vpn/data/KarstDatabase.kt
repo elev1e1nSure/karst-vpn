@@ -9,7 +9,7 @@ import karst.vpn.data.entities.SubscriptionEntity
 
 @Database(
     entities = [SubscriptionEntity::class, ServerEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class KarstDatabase : RoomDatabase() {

@@ -21,6 +21,7 @@ import karst.vpn.data.SubscriptionRefresher
 import karst.vpn.net.LatencyProbe
 import karst.vpn.net.LatencyResult
 import karst.vpn.net.SubscriptionFetcher
+import karst.vpn.net.SubscriptionFetchResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.After
@@ -122,9 +123,9 @@ class VpnUiTest {
 }
 
 private class FakeSubscriptionFetcher : SubscriptionFetcher {
-    var result: Result<String> = Result.success("")
+    var result: Result<SubscriptionFetchResult> = Result.success(SubscriptionFetchResult(""))
 
-    override fun fetch(url: String): Result<String> = result
+    override fun fetch(url: String): Result<SubscriptionFetchResult> = result
 }
 
 private class FakeLatencyProbe : LatencyProbe {

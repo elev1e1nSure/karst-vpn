@@ -17,8 +17,8 @@ class SubscriptionRefresher(
     suspend fun refresh(id: String): Result<ImportSummary> = runCatching {
         try {
             val subscription = subscriptions.getById(id) ?: error("Подписка не найдена")
-            val body = fetcher.fetch(subscription.url).getOrThrow()
-            val parsed = SubscriptionParser.parse(body)
+            val fetchResult = fetcher.fetch(subscription.url).getOrThrow()
+            val parsed = SubscriptionParser.parse(fetchResult.body)
             val now = System.currentTimeMillis()
             val startOrder = servers.maxSortOrder() + 1
             val serverEntities = parsed.links.mapIndexed { index, link ->
@@ -33,7 +33,21 @@ class SubscriptionRefresher(
             database.withTransaction {
                 servers.deleteBySubscriptionId(id)
                 servers.upsertAll(serverEntities)
-                subscriptions.updateRefreshResult(id, now, null)
+                subscriptions.upsert(
+                    subscription.copy(
+                        displayName = fetchResult.metadata.profileTitle ?: subscription.displayName,
+                        announce = fetchResult.metadata.announce,
+                        profileUpdateIntervalHours = fetchResult.metadata.profileUpdateIntervalHours,
+                        profileWebPageUrl = fetchResult.metadata.profileWebPageUrl,
+                        routingEnabled = fetchResult.metadata.routingEnabled,
+                        uploadBytes = fetchResult.metadata.uploadBytes,
+                        downloadBytes = fetchResult.metadata.downloadBytes,
+                        totalBytes = fetchResult.metadata.totalBytes,
+                        expireAtEpochSeconds = fetchResult.metadata.expireAtEpochSeconds,
+                        lastRefreshedAtEpochMs = now,
+                        lastRefreshError = null,
+                    ),
+                )
             }
 
             parsed.toImportSummary(serverEntities.firstOrNull()?.id)

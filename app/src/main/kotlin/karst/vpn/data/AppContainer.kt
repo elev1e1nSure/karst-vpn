@@ -2,6 +2,8 @@ package karst.vpn.data
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import karst.vpn.net.LatencyProbe
 import karst.vpn.net.SubscriptionFetcher
 import karst.vpn.net.NetworkSubscriptionFetcher
@@ -14,7 +16,7 @@ class AppContainer(context: Context) {
         appContext,
         KarstDatabase::class.java,
         "karst.db",
-    ).build()
+    ).addMigrations(MIGRATION_1_2).build()
 
     val settingsRepository = SettingsRepository(appContext)
     val subscriptionFetcher: SubscriptionFetcher = NetworkSubscriptionFetcher()
@@ -23,4 +25,17 @@ class AppContainer(context: Context) {
     val importCoordinator = ImportCoordinator(database, subscriptionFetcher)
     val subscriptionRefresher = SubscriptionRefresher(database, subscriptionFetcher)
     val latencyTracker = LatencyTracker(database, latencyProbe)
+}
+
+private val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE subscriptions ADD COLUMN announce TEXT")
+        db.execSQL("ALTER TABLE subscriptions ADD COLUMN profileUpdateIntervalHours INTEGER")
+        db.execSQL("ALTER TABLE subscriptions ADD COLUMN profileWebPageUrl TEXT")
+        db.execSQL("ALTER TABLE subscriptions ADD COLUMN routingEnabled INTEGER")
+        db.execSQL("ALTER TABLE subscriptions ADD COLUMN uploadBytes INTEGER")
+        db.execSQL("ALTER TABLE subscriptions ADD COLUMN downloadBytes INTEGER")
+        db.execSQL("ALTER TABLE subscriptions ADD COLUMN totalBytes INTEGER")
+        db.execSQL("ALTER TABLE subscriptions ADD COLUMN expireAtEpochSeconds INTEGER")
+    }
 }

@@ -45,8 +45,8 @@ class ImportCoordinator(
     }
 
     private suspend fun importSubscription(url: String): ImportSummary {
-        val body = fetcher.fetch(url).getOrThrow()
-        val parsed = SubscriptionParser.parse(body)
+        val fetchResult = fetcher.fetch(url).getOrThrow()
+        val parsed = SubscriptionParser.parse(fetchResult.body)
         val now = System.currentTimeMillis()
         val subscriptionId = UUID.randomUUID().toString()
         val startOrder = servers.maxSortOrder() + 1
@@ -64,7 +64,15 @@ class ImportCoordinator(
                 SubscriptionEntity(
                     id = subscriptionId,
                     url = url,
-                    displayName = subscriptionDisplayName(url),
+                    displayName = fetchResult.metadata.profileTitle ?: subscriptionDisplayName(url),
+                    announce = fetchResult.metadata.announce,
+                    profileUpdateIntervalHours = fetchResult.metadata.profileUpdateIntervalHours,
+                    profileWebPageUrl = fetchResult.metadata.profileWebPageUrl,
+                    routingEnabled = fetchResult.metadata.routingEnabled,
+                    uploadBytes = fetchResult.metadata.uploadBytes,
+                    downloadBytes = fetchResult.metadata.downloadBytes,
+                    totalBytes = fetchResult.metadata.totalBytes,
+                    expireAtEpochSeconds = fetchResult.metadata.expireAtEpochSeconds,
                     lastRefreshedAtEpochMs = now,
                     lastRefreshError = null,
                     createdAtEpochMs = now,

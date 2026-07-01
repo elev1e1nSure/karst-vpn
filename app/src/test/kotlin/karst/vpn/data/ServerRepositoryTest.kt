@@ -13,6 +13,8 @@ import karst.vpn.data.entities.SubscriptionEntity
 import karst.vpn.net.LatencyProbe
 import karst.vpn.net.LatencyResult
 import karst.vpn.net.SubscriptionFetcher
+import karst.vpn.net.SubscriptionFetchResult
+import karst.vpn.net.SubscriptionMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -82,7 +84,7 @@ class ServerRepositoryTest {
         val uuid = "11111111-1111-4111-8111-111111111111"
         val vlessList = "vless://$uuid@s1.com:443?security=none#S1\nvless://$uuid@s2.com:443?security=none#S2"
 
-        fetcher.result = Result.success(vlessList)
+        fetcher.result = Result.success(SubscriptionFetchResult(vlessList))
 
         val result = importCoordinator.importInput(url)
         assertTrue(result.isSuccess)
@@ -102,12 +104,50 @@ class ServerRepositoryTest {
     }
 
     @Test
+    fun testAddSubscriptionUsesProfileTitle() = runTest {
+        val url = "https://example.com/sub"
+        val uuid = "11111111-1111-4111-8111-111111111111"
+        val vlessList = "vless://$uuid@s1.com:443?security=none#S1"
+
+        fetcher.result = Result.success(
+            SubscriptionFetchResult(
+                body = vlessList,
+                metadata = SubscriptionMetadata(
+                    profileTitle = "Proseka VPN",
+                    announce = "Обнови подписку",
+                    profileUpdateIntervalHours = 12,
+                    profileWebPageUrl = url,
+                    routingEnabled = false,
+                    uploadBytes = 10,
+                    downloadBytes = 20,
+                    totalBytes = 0,
+                    expireAtEpochSeconds = 1784109514,
+                ),
+            ),
+        )
+
+        val result = importCoordinator.importInput(url)
+        assertTrue(result.isSuccess)
+
+        val subs = subscriptionDao.observeAll().first()
+        assertEquals("Proseka VPN", subs[0].displayName)
+        assertEquals("Обнови подписку", subs[0].announce)
+        assertEquals(12, subs[0].profileUpdateIntervalHours)
+        assertEquals(url, subs[0].profileWebPageUrl)
+        assertEquals(false, subs[0].routingEnabled)
+        assertEquals(10L, subs[0].uploadBytes)
+        assertEquals(20L, subs[0].downloadBytes)
+        assertEquals(0L, subs[0].totalBytes)
+        assertEquals(1784109514L, subs[0].expireAtEpochSeconds)
+    }
+
+    @Test
     fun testAddSubscriptionPartialFailure() = runTest {
         val url = "https://example.com/sub"
         val uuid = "11111111-1111-4111-8111-111111111111"
         val mixedContent = "vless://$uuid@s1.com:443?security=none#S1\ninvalid-line\nvless://$uuid@s2.com:443?security=none#S2"
 
-        fetcher.result = Result.success(mixedContent)
+        fetcher.result = Result.success(SubscriptionFetchResult(mixedContent))
 
         val result = importCoordinator.importInput(url)
         assertTrue(result.isSuccess)
@@ -124,11 +164,16 @@ class ServerRepositoryTest {
         val url = "https://example.com/sub"
         val uuid = "11111111-1111-4111-8111-111111111111"
 
-        fetcher.result = Result.success("vless://$uuid@s1.com:443?security=none#S1\nvless://$uuid@s2.com:443?security=none#S2")
+        fetcher.result = Result.success(SubscriptionFetchResult("vless://$uuid@s1.com:443?security=none#S1\nvless://$uuid@s2.com:443?security=none#S2"))
         importCoordinator.importInput(url).getOrThrow()
         val subId = subscriptionDao.observeAll().first()[0].id
 
-        fetcher.result = Result.success("vless://$uuid@s3.com:443?security=none#S3")
+        fetcher.result = Result.success(
+            SubscriptionFetchResult(
+                body = "vless://$uuid@s3.com:443?security=none#S3",
+                metadata = SubscriptionMetadata(profileTitle = "Updated Sub"),
+            ),
+        )
         val refreshResult = subscriptionRefresher.refresh(subId)
         assertTrue(refreshResult.isSuccess)
 
@@ -136,6 +181,7 @@ class ServerRepositoryTest {
         assertEquals(1, servers.size)
         assertEquals("S3", servers[0].server.displayName)
         assertEquals(subId, servers[0].server.subscriptionId)
+        assertEquals("Updated Sub", subscriptionDao.observeAll().first()[0].displayName)
     }
 
     @Test
@@ -270,9 +316,9 @@ private class FakeKarstDatabase(
 }
 
 private class FakeSubscriptionFetcher : SubscriptionFetcher {
-    var result: Result<String> = Result.success("")
+    var result: Result<SubscriptionFetchResult> = Result.success(SubscriptionFetchResult(""))
 
-    override fun fetch(url: String): Result<String> = result
+    override fun fetch(url: String): Result<SubscriptionFetchResult> = result
 }
 
 private class FakeLatencyProbe : LatencyProbe {
