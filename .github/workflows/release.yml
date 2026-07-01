@@ -42,10 +42,14 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
+      - name: Rename APK
+        shell: bash
+        run: mv app/build/outputs/apk/release/app-release.apk karst-vpn-v${{ steps.version.outputs.version_name }}.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: app/build/outputs/apk/release/karst-vpn-v*.apk
+          path: karst-vpn-v${{ steps.version.outputs.version_name }}.apk
 
   release:
     needs: build
