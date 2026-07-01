@@ -19,6 +19,9 @@ class SubscriptionRefresher(
             val subscription = subscriptions.getById(id) ?: error("Подписка не найдена")
             val fetchResult = fetcher.fetch(subscription.url).getOrThrow()
             val parsed = SubscriptionParser.parse(fetchResult.body)
+            require(parsed.links.isNotEmpty()) {
+                "Обновление не применено: подписка не вернула VLESS-серверы"
+            }
             val now = System.currentTimeMillis()
             val startOrder = servers.maxSortOrder() + 1
             val serverEntities = parsed.links.mapIndexed { index, link ->

@@ -185,6 +185,29 @@ class ServerRepositoryTest {
     }
 
     @Test
+    fun testRefreshSubscriptionKeepsServersWhenResponseHasNoLinks() = runTest {
+        val url = "https://example.com/sub"
+        val uuid = "11111111-1111-4111-8111-111111111111"
+
+        fetcher.result = Result.success(SubscriptionFetchResult("vless://$uuid@s1.com:443?security=none#S1"))
+        importCoordinator.importInput(url).getOrThrow()
+        val subId = subscriptionDao.observeAll().first()[0].id
+
+        fetcher.result = Result.success(SubscriptionFetchResult(""))
+        val refreshResult = subscriptionRefresher.refresh(subId)
+
+        assertTrue(refreshResult.isFailure)
+        val servers = serverDao.observeAllWithSubscriptions().first()
+        assertEquals(1, servers.size)
+        assertEquals("S1", servers[0].server.displayName)
+        assertEquals(subId, servers[0].server.subscriptionId)
+        assertEquals(
+            "Обновление не применено: подписка не вернула VLESS-серверы",
+            subscriptionDao.observeAll().first()[0].lastRefreshError,
+        )
+    }
+
+    @Test
     fun testDeleteServer() = runTest {
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#Del"
         val serverId = importCoordinator.importInput(link).getOrThrow().firstServerId!!
