@@ -91,12 +91,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.painterResource
@@ -105,6 +103,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -662,13 +661,16 @@ private fun ServerSheetContent(
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
                 } else {
-                    // Material3 ModalBottomSheet forwards any scroll delta the LazyColumn doesn't
-                    // consume (e.g. at the list edges) to its own drag handling, which makes the
-                    // sheet jump toward dismiss mid-scroll. Swallowing unconsumed post-scroll here
-                    // keeps drag-to-dismiss limited to the handle instead of fighting the list.
+                    // Swallowing unconsumed *scroll* here used to also starve the list's own
+                    // overscroll (rubber-band) effect, since that effect only sees whatever's
+                    // left after nested-scroll parents (us) take their share — with us taking
+                    // all of it, dragging past the list's edge showed no bounce at all. A fling
+                    // released at the edge has no overscroll to absorb it though, so its leftover
+                    // velocity would otherwise bubble into the ModalBottomSheet's own drag-to-
+                    // dismiss handling and cause a visible jerk-then-settle. Only swallow that.
                     val listNestedScrollConnection = remember {
                         object : NestedScrollConnection {
-                            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                                 return available
                             }
                         }
