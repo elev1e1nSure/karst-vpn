@@ -117,11 +117,22 @@ class VpnViewModel(
     ) { serverRows, settings, connection, (addState, message, refreshAll) ->
         val servers = serverRows.map { it.toUiServer() }
         val groups = serverRows.groupBy { it.server.subscriptionId }.map { (subId, subRows) ->
+            val first = subRows.firstOrNull()
             val name = if (subId == null) "Вручную" else subRows.firstOrNull()?.subscriptionName ?: "Подписка"
             UiSubscription(
                 id = subId,
                 name = name,
-                announce = subRows.firstOrNull()?.subscriptionAnnounce,
+                announce = first?.subscriptionAnnounce,
+                url = first?.subscriptionUrl,
+                profileUpdateIntervalHours = first?.subscriptionProfileUpdateIntervalHours,
+                profileWebPageUrl = first?.subscriptionProfileWebPageUrl,
+                routingEnabled = first?.subscriptionRoutingEnabled,
+                uploadBytes = first?.subscriptionUploadBytes,
+                downloadBytes = first?.subscriptionDownloadBytes,
+                totalBytes = first?.subscriptionTotalBytes,
+                expireAtEpochSeconds = first?.subscriptionExpireAtEpochSeconds,
+                lastRefreshedAtEpochMs = first?.subscriptionLastRefreshedAtEpochMs,
+                lastRefreshError = first?.subscriptionLastRefreshError,
                 servers = subRows.map { it.toUiServer() },
             )
         }
@@ -201,6 +212,21 @@ class VpnViewModel(
                 serverRepository.deleteServer(id)
             }
             if (uiState.value.selectedServerId == id) {
+                settingsRepository.setSelectedServerId(null)
+            }
+        }
+    }
+
+    fun deleteSubscription(id: String) {
+        val selectedWasInSubscription = uiState.value.subscriptionGroups
+            .firstOrNull { it.id == id }
+            ?.servers
+            ?.any { it.id == uiState.value.selectedServerId } == true
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                serverRepository.deleteSubscription(id)
+            }
+            if (selectedWasInSubscription) {
                 settingsRepository.setSelectedServerId(null)
             }
         }

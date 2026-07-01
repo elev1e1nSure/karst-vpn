@@ -13,6 +13,16 @@ data class UiSubscription(
     val id: String?,
     val name: String,
     val announce: String? = null,
+    val url: String? = null,
+    val profileUpdateIntervalHours: Int? = null,
+    val profileWebPageUrl: String? = null,
+    val routingEnabled: Boolean? = null,
+    val uploadBytes: Long? = null,
+    val downloadBytes: Long? = null,
+    val totalBytes: Long? = null,
+    val expireAtEpochSeconds: Long? = null,
+    val lastRefreshedAtEpochMs: Long? = null,
+    val lastRefreshError: String? = null,
     val servers: List<UiServer>,
 )
 

@@ -30,11 +30,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,12 +72,16 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.delay
 
 private enum class Route {
@@ -152,11 +158,18 @@ private fun MainVpnScreen(
     var settingsVisible by remember { mutableStateOf(false) }
     var addServerOpen by remember { mutableStateOf(false) }
     var addServerValue by remember { mutableStateOf("") }
+    var subscriptionMenuId by remember { mutableStateOf<String?>(null) }
+    val subscriptionMenu = state.subscriptionGroups.firstOrNull { it.id == subscriptionMenuId }
 
     LaunchedEffect(state.importMessage) {
         if (state.importMessage != null) {
             addServerOpen = false
             addServerValue = ""
+        }
+    }
+    LaunchedEffect(subscriptionMenuId, subscriptionMenu) {
+        if (subscriptionMenuId != null && subscriptionMenu == null) {
+            subscriptionMenuId = null
         }
     }
 
@@ -221,6 +234,7 @@ private fun MainVpnScreen(
             onDismissRequest = {
                 menuVisible = false
                 addServerOpen = false
+                subscriptionMenuId = null
                 viewModel.clearAddError()
                 viewModel.clearImportMessage()
             },
@@ -242,11 +256,19 @@ private fun MainVpnScreen(
                     importMessage = state.importMessage,
                     refreshAllVersion = state.refreshAllVersion,
                     refreshAllLoading = state.refreshAllLoading,
+                    subscriptionMenu = subscriptionMenu,
                     onSelect = { id ->
                         viewModel.selectServer(id)
                         menuVisible = false
                     },
                     onRemove = viewModel::deleteServer,
+                    onDeleteSubscription = { id ->
+                        viewModel.deleteSubscription(id)
+                        subscriptionMenuId = null
+                        menuVisible = false
+                    },
+                    onOpenSubscription = { id -> subscriptionMenuId = id },
+                    onCloseSubscription = { subscriptionMenuId = null },
                     onRefreshAll = viewModel::refreshAllSubscriptions,
                     onOpenAddServer = {
                         addServerOpen = true
@@ -513,14 +535,28 @@ private fun ServerSheetContent(
     importMessage: String?,
     refreshAllVersion: Int,
     refreshAllLoading: Boolean,
+    subscriptionMenu: UiSubscription?,
     onSelect: (String) -> Unit,
     onRemove: (String) -> Unit,
+    onDeleteSubscription: (String) -> Unit,
+    onOpenSubscription: (String) -> Unit,
+    onCloseSubscription: () -> Unit,
     onRefreshAll: () -> Unit,
     onOpenAddServer: () -> Unit,
     onCancelAddServer: () -> Unit,
     onChangeAddServerValue: (String) -> Unit,
     onSubmitAddServer: () -> Unit,
 ) {
+    if (subscriptionMenu != null) {
+        SubscriptionMenuContent(
+            subscription = subscriptionMenu,
+            theme = theme,
+            onBack = onCloseSubscription,
+            onDelete = { subscriptionMenu.id?.let(onDeleteSubscription) },
+        )
+        return
+    }
+
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -592,6 +628,7 @@ private fun ServerSheetContent(
                             theme = theme,
                             accent = accent,
                             onRefresh = null,
+                            onOpenMenu = group.id?.let { id -> { onOpenSubscription(id) } },
                         )
                         group.servers.forEach { server ->
                             ServerRow(
@@ -661,6 +698,42 @@ private fun SubscriptionGroupHeader(
     theme: VpnColors,
     accent: Color,
     onRefresh: (() -> Unit)? = null,
+    onOpenMenu: (() -> Unit)? = null,
+) {
+    val context = LocalContext.current
+    val content: @Composable () -> Unit = {
+        SubscriptionGroupHeaderRow(
+            name = name,
+            announce = announce,
+            theme = theme,
+            accent = accent,
+            onRefresh = onRefresh,
+            showMenuArrow = onOpenMenu != null,
+        )
+    }
+    if (onOpenMenu != null) {
+        Pressable(
+            onClick = {
+                Haptics.click(context)
+                onOpenMenu()
+            },
+            pressedScale = 0.99f,
+            modifier = Modifier.fillMaxWidth(),
+            content = content,
+        )
+    } else {
+        content()
+    }
+}
+
+@Composable
+private fun SubscriptionGroupHeaderRow(
+    name: String,
+    announce: String?,
+    theme: VpnColors,
+    accent: Color,
+    onRefresh: (() -> Unit)?,
+    showMenuArrow: Boolean,
 ) {
     val context = LocalContext.current
     Row(
@@ -728,6 +801,193 @@ private fun SubscriptionGroupHeader(
                 }
             }
         }
+        if (showMenuArrow) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "Меню подписки",
+                tint = theme.mutedInk,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionMenuContent(
+    subscription: UiSubscription,
+    theme: VpnColors,
+    onBack: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var confirmDelete by remember(subscription.id) { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Pressable(onClick = onBack, pressedScale = 0.88f) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Назад",
+                    tint = theme.mutedInk,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = subscription.name,
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 18.sp,
+                    color = theme.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${subscription.servers.size} серверов",
+                    fontSize = 12.sp,
+                    color = theme.mutedInk,
+                )
+            }
+        }
+
+        subscription.announce?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                text = it,
+                fontSize = 12.sp,
+                lineHeight = 16.sp,
+                color = theme.mutedInk,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(theme.cardBg)
+                    .border(1.dp, theme.border, RoundedCornerShape(14.dp))
+                    .padding(12.dp),
+            )
+        }
+
+        SubscriptionInfoSection(title = "Настройки", theme = theme) {
+            SubscriptionDetailRow("URL", subscription.url ?: "Не указан", theme, monospace = true)
+            SubscriptionDetailRow("Страница профиля", subscription.profileWebPageUrl ?: "Не указана", theme, monospace = true)
+            SubscriptionDetailRow("Интервал обновления", formatUpdateInterval(subscription.profileUpdateIntervalHours), theme)
+            SubscriptionDetailRow("Роутинг профиля", formatOptionalBoolean(subscription.routingEnabled), theme)
+        }
+
+        SubscriptionInfoSection(title = "Лимиты", theme = theme) {
+            SubscriptionDetailRow(
+                "Трафик",
+                formatTraffic(subscription.uploadBytes, subscription.downloadBytes, subscription.totalBytes),
+                theme,
+            )
+            SubscriptionDetailRow("Истекает", formatEpochSeconds(subscription.expireAtEpochSeconds), theme)
+        }
+
+        SubscriptionInfoSection(title = "Обновление", theme = theme) {
+            SubscriptionDetailRow("Последнее", formatEpochMillis(subscription.lastRefreshedAtEpochMs), theme)
+            SubscriptionDetailRow("Ошибка", subscription.lastRefreshError ?: "Нет", theme)
+        }
+
+        if (confirmDelete) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(theme.cardBg)
+                    .border(1.dp, Color(0xFFA56060).copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text("Удалить подписку и все её серверы?", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = theme.ink)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    Pressable(onClick = { confirmDelete = false }, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(1.dp, theme.border, RoundedCornerShape(10.dp))
+                                .padding(10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Отмена", fontWeight = FontWeight.Medium, fontSize = 13.sp, color = theme.mutedInk)
+                        }
+                    }
+                    Pressable(onClick = onDelete, modifier = Modifier.weight(1f)) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFA56060))
+                                .padding(10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Удалить", fontWeight = FontWeight.Medium, fontSize = 13.sp, color = Color.White)
+                        }
+                    }
+                }
+            }
+        } else {
+            Pressable(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .border(1.dp, Color(0xFFA56060).copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 12.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(Icons.Filled.Delete, contentDescription = null, tint = Color(0xFFA56060), modifier = Modifier.size(18.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Удалить подписку", fontWeight = FontWeight.Medium, fontSize = 14.sp, color = Color(0xFFA56060))
+                        Text("Группа и её серверы будут удалены", fontSize = 12.sp, color = theme.mutedInk)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubscriptionInfoSection(
+    title: String,
+    theme: VpnColors,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(theme.cardBg)
+            .border(1.dp, theme.border, RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = theme.ink)
+        content()
+    }
+}
+
+@Composable
+private fun SubscriptionDetailRow(
+    label: String,
+    value: String,
+    theme: VpnColors,
+    monospace: Boolean = false,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, fontSize = 11.sp, color = theme.mutedInk)
+        Text(
+            text = value,
+            fontFamily = if (monospace) FontFamily.Monospace else FontFamily.SansSerif,
+            fontSize = 12.5.sp,
+            lineHeight = 17.sp,
+            color = theme.ink,
+            maxLines = if (monospace) 3 else 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -1019,3 +1279,44 @@ private fun ToggleRow(
         }
     }
 }
+
+private fun formatUpdateInterval(hours: Int?): String =
+    hours?.takeIf { it > 0 }?.let { "$it ч" } ?: "Не указан"
+
+private fun formatOptionalBoolean(value: Boolean?): String =
+    when (value) {
+        true -> "Включён"
+        false -> "Выключен"
+        null -> "Не указан"
+    }
+
+private fun formatEpochMillis(value: Long?): String =
+    value?.let { dateFormatter().format(Date(it)) } ?: "Не указано"
+
+private fun formatEpochSeconds(value: Long?): String =
+    value?.let { dateFormatter().format(Date(it * 1000)) } ?: "Не указано"
+
+private fun formatTraffic(uploadBytes: Long?, downloadBytes: Long?, totalBytes: Long?): String {
+    val used = listOfNotNull(uploadBytes, downloadBytes).takeIf { it.isNotEmpty() }?.sum()
+    return when {
+        used != null && totalBytes != null -> "${formatBytes(used)} / ${formatBytes(totalBytes)}"
+        used != null -> "Использовано ${formatBytes(used)}"
+        totalBytes != null -> "Лимит ${formatBytes(totalBytes)}"
+        else -> "Не указано"
+    }
+}
+
+private fun formatBytes(value: Long): String {
+    if (value < 1024) return "$value Б"
+    val units = listOf("КБ", "МБ", "ГБ", "ТБ")
+    var amount = value / 1024.0
+    var unitIndex = 0
+    while (amount >= 1024 && unitIndex < units.lastIndex) {
+        amount /= 1024
+        unitIndex += 1
+    }
+    return String.format(Locale.getDefault(), "%.1f %s", amount, units[unitIndex])
+}
+
+private fun dateFormatter(): SimpleDateFormat =
+    SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())

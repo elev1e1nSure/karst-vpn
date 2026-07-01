@@ -13,6 +13,16 @@ data class ServerWithSubscription(
     @Embedded val server: ServerEntity,
     @ColumnInfo(name = "subscriptionName") val subscriptionName: String?,
     @ColumnInfo(name = "subscriptionAnnounce") val subscriptionAnnounce: String?,
+    @ColumnInfo(name = "subscriptionUrl") val subscriptionUrl: String?,
+    @ColumnInfo(name = "subscriptionProfileUpdateIntervalHours") val subscriptionProfileUpdateIntervalHours: Int?,
+    @ColumnInfo(name = "subscriptionProfileWebPageUrl") val subscriptionProfileWebPageUrl: String?,
+    @ColumnInfo(name = "subscriptionRoutingEnabled") val subscriptionRoutingEnabled: Boolean?,
+    @ColumnInfo(name = "subscriptionUploadBytes") val subscriptionUploadBytes: Long?,
+    @ColumnInfo(name = "subscriptionDownloadBytes") val subscriptionDownloadBytes: Long?,
+    @ColumnInfo(name = "subscriptionTotalBytes") val subscriptionTotalBytes: Long?,
+    @ColumnInfo(name = "subscriptionExpireAtEpochSeconds") val subscriptionExpireAtEpochSeconds: Long?,
+    @ColumnInfo(name = "subscriptionLastRefreshedAtEpochMs") val subscriptionLastRefreshedAtEpochMs: Long?,
+    @ColumnInfo(name = "subscriptionLastRefreshError") val subscriptionLastRefreshError: String?,
 )
 
 @Dao
@@ -27,7 +37,17 @@ interface ServerDao {
         """
         SELECT servers.*,
             subscriptions.displayName AS subscriptionName,
-            subscriptions.announce AS subscriptionAnnounce
+            subscriptions.announce AS subscriptionAnnounce,
+            subscriptions.url AS subscriptionUrl,
+            subscriptions.profileUpdateIntervalHours AS subscriptionProfileUpdateIntervalHours,
+            subscriptions.profileWebPageUrl AS subscriptionProfileWebPageUrl,
+            subscriptions.routingEnabled AS subscriptionRoutingEnabled,
+            subscriptions.uploadBytes AS subscriptionUploadBytes,
+            subscriptions.downloadBytes AS subscriptionDownloadBytes,
+            subscriptions.totalBytes AS subscriptionTotalBytes,
+            subscriptions.expireAtEpochSeconds AS subscriptionExpireAtEpochSeconds,
+            subscriptions.lastRefreshedAtEpochMs AS subscriptionLastRefreshedAtEpochMs,
+            subscriptions.lastRefreshError AS subscriptionLastRefreshError
         FROM servers
         LEFT JOIN subscriptions ON subscriptions.id = servers.subscriptionId
         ORDER BY servers.sortOrder ASC, servers.addedAtEpochMs ASC

@@ -2,7 +2,6 @@ package karst.vpn.data
 
 import karst.vpn.data.dao.ServerWithSubscription
 import karst.vpn.data.entities.ServerEntity
-import karst.vpn.data.entities.SubscriptionEntity
 import kotlinx.coroutines.flow.Flow
 
 data class ImportSummary(
@@ -36,7 +35,7 @@ class ServerRepository(
         servers.deleteById(id)
     }
 
-    suspend fun deleteSubscription(subscription: SubscriptionEntity) {
-        subscriptions.delete(subscription)
+    suspend fun deleteSubscription(id: String) {
+        subscriptions.deleteById(id)
     }
 }
