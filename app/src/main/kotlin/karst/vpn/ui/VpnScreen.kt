@@ -58,8 +58,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -533,8 +537,19 @@ private fun ServerSheetContent(
             modifier = Modifier.padding(bottom = 12.dp),
         )
     } else {
+        // Material3 ModalBottomSheet forwards any scroll delta the LazyColumn doesn't
+        // consume (e.g. at the list edges) to its own drag handling, which makes the
+        // sheet jump toward dismiss mid-scroll. Swallowing unconsumed post-scroll here
+        // keeps drag-to-dismiss limited to the handle instead of fighting the list.
+        val listNestedScrollConnection = remember {
+            object : NestedScrollConnection {
+                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                    return available
+                }
+            }
+        }
         LazyColumn(
-            modifier = Modifier.heightIn(max = 360.dp),
+            modifier = Modifier.heightIn(max = 360.dp).nestedScroll(listNestedScrollConnection),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             groups.forEach { group ->
