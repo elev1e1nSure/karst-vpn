@@ -93,8 +93,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.res.painterResource
@@ -661,15 +663,19 @@ private fun ServerSheetContent(
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
                 } else {
-                    // Swallowing unconsumed *scroll* here used to also starve the list's own
-                    // overscroll (rubber-band) effect, since that effect only sees whatever's
-                    // left after nested-scroll parents (us) take their share — with us taking
-                    // all of it, dragging past the list's edge showed no bounce at all. A fling
-                    // released at the edge has no overscroll to absorb it though, so its leftover
-                    // velocity would otherwise bubble into the ModalBottomSheet's own drag-to-
-                    // dismiss handling and cause a visible jerk-then-settle. Only swallow that.
+                    // Material3 ModalBottomSheet forwards any scroll/fling delta the LazyColumn
+                    // doesn't consume (e.g. at the list edges) to its own drag handling, which
+                    // makes the sheet jerk mid-drag or on fling release. Swallowing both here
+                    // keeps the sheet's own drag-to-dismiss limited to its handle. This also
+                    // suppresses the list's own overscroll bounce at the edges — a nicer bounce
+                    // would need a purpose-built local effect instead of relying on nested-scroll
+                    // dispatch order, which isn't reliable to tune without on-device testing.
                     val listNestedScrollConnection = remember {
                         object : NestedScrollConnection {
+                            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                                return available
+                            }
+
                             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                                 return available
                             }
