@@ -1,6 +1,8 @@
 package karst.vpn.data
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -11,15 +13,17 @@ import kotlinx.coroutines.flow.map
 private val Context.settingsDataStore by preferencesDataStore("karst_settings")
 
 class SettingsRepository(
-    private val context: Context,
+    private val dataStore: DataStore<Preferences>,
 ) {
-    val selectedServerId: Flow<String?> = context.settingsDataStore.data.map { it[SELECTED_SERVER_ID] }
-    val darkMode: Flow<Boolean> = context.settingsDataStore.data.map { it[DARK_MODE] ?: true }
-    val notificationsEnabled: Flow<Boolean> = context.settingsDataStore.data.map { it[NOTIFICATIONS_ENABLED] ?: true }
-    val dnsDohUrl: Flow<String> = context.settingsDataStore.data.map { it[DNS_DOH_URL] ?: DEFAULT_DNS_DOH_URL }
+    constructor(context: Context) : this(context.settingsDataStore)
+
+    val selectedServerId: Flow<String?> = dataStore.data.map { it[SELECTED_SERVER_ID] }
+    val darkMode: Flow<Boolean> = dataStore.data.map { it[DARK_MODE] ?: true }
+    val notificationsEnabled: Flow<Boolean> = dataStore.data.map { it[NOTIFICATIONS_ENABLED] ?: true }
+    val dnsDohUrl: Flow<String> = dataStore.data.map { it[DNS_DOH_URL] ?: DEFAULT_DNS_DOH_URL }
 
     suspend fun setSelectedServerId(id: String?) {
-        context.settingsDataStore.edit {
+        dataStore.edit {
             if (id == null) {
                 it.remove(SELECTED_SERVER_ID)
             } else {
@@ -29,11 +33,11 @@ class SettingsRepository(
     }
 
     suspend fun setDarkMode(enabled: Boolean) {
-        context.settingsDataStore.edit { it[DARK_MODE] = enabled }
+        dataStore.edit { it[DARK_MODE] = enabled }
     }
 
     suspend fun setNotificationsEnabled(enabled: Boolean) {
-        context.settingsDataStore.edit { it[NOTIFICATIONS_ENABLED] = enabled }
+        dataStore.edit { it[NOTIFICATIONS_ENABLED] = enabled }
     }
 
     companion object {

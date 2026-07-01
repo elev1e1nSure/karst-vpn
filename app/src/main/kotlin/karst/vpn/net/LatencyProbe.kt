@@ -14,8 +14,12 @@ sealed class LatencyResult {
     data class Error(val message: String?) : LatencyResult()
 }
 
-class LatencyProbe {
-    suspend fun measure(host: String, port: Int, timeoutMs: Int = 1500): LatencyResult =
+interface LatencyProbe {
+    suspend fun measure(host: String, port: Int, timeoutMs: Int = 1500): LatencyResult
+}
+
+class SocketLatencyProbe : LatencyProbe {
+    override suspend fun measure(host: String, port: Int, timeoutMs: Int): LatencyResult =
         withContext(Dispatchers.IO) {
             val socket = Socket()
             SocketProtectorRegistry.current?.protect(socket)
