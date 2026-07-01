@@ -27,7 +27,7 @@ class SubscriptionRefresher(
                 if (summary.firstServerId != null) lastFirstServerId = summary.firstServerId
             }
         }
-        ImportSummary(imported = totalImported, skipped = 0, firstServerId = lastFirstServerId, message = "Подписки обновлены")
+        ImportSummary(imported = totalImported, skipped = 0, firstServerId = lastFirstServerId, message = "")
     }
 
     suspend fun refresh(id: String): Result<ImportSummary> = runCatching {
