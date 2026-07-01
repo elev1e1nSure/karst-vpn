@@ -67,6 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 
@@ -313,7 +314,7 @@ private fun Header(theme: VpnColors, onSettingsClick: () -> Unit) {
             )
         }
 
-        Pressable(onClick = onSettingsClick, pressedScale = 0.92f) {
+        Pressable(onClick = onSettingsClick, pressedScale = 0.92f, modifier = Modifier.testTag("settings_btn")) {
             Box(
                 modifier = Modifier
                     .size(46.dp)
@@ -467,7 +468,7 @@ private fun ConnectButton(
 
 @Composable
 private fun LocationChip(server: UiServer?, theme: VpnColors, chipRadiusDp: Int, onClick: () -> Unit) {
-    Pressable(onClick = onClick, pressedScale = 0.985f, modifier = Modifier.fillMaxWidth()) {
+    Pressable(onClick = onClick, pressedScale = 0.985f, modifier = Modifier.fillMaxWidth().testTag("location_chip")) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -601,7 +602,7 @@ private fun ServerSheetContent(
             onSubmit = onSubmitAddServer,
         )
     } else {
-        Pressable(onClick = onOpenAddServer, modifier = Modifier.fillMaxWidth()) {
+        Pressable(onClick = onOpenAddServer, modifier = Modifier.fillMaxWidth().testTag("open_add_server_btn")) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -780,7 +781,7 @@ private fun AddServerForm(
                 focusedBorderColor = theme.border,
                 unfocusedBorderColor = theme.border,
             ),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("add_server_input"),
         )
         if (error != null) {
             Text(error, fontSize = 12.sp, color = Color(0xFFA56060))
@@ -798,7 +799,7 @@ private fun AddServerForm(
                     Text("Отмена", fontWeight = FontWeight.Medium, fontSize = 13.sp, color = theme.mutedInk)
                 }
             }
-            Pressable(onClick = onSubmit, enabled = !loading, modifier = Modifier.weight(1f)) {
+            Pressable(onClick = onSubmit, enabled = !loading, modifier = Modifier.weight(1f).testTag("add_server_submit")) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -833,9 +834,9 @@ private fun SettingsSheetContent(
         modifier = Modifier.padding(bottom = 16.dp),
     )
 
-    SettingsActionRow(theme, "Логи", "Открыть журнал sing-box", onOpenLogs)
-    ToggleRow(theme, accent, "Тёмная тема", "Спокойнее для глаз вечером", darkModeOn, onToggleDarkMode)
-    ToggleRow(theme, accent, "Уведомления", "О статусе подключения", notifications, onToggleNotifications)
+    SettingsActionRow(theme, "Логи", "Открыть журнал sing-box", onOpenLogs, Modifier.testTag("logs_action_row"))
+    ToggleRow(theme, accent, "Тёмная тема", "Спокойнее для глаз вечером", darkModeOn, onToggleDarkMode, Modifier.testTag("dark_mode_toggle"))
+    ToggleRow(theme, accent, "Уведомления", "О статусе подключения", notifications, onToggleNotifications, Modifier.testTag("notifications_toggle"))
 }
 
 @Composable
@@ -844,8 +845,9 @@ private fun SettingsActionRow(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column {
+    Column(modifier = modifier) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(theme.border))
         Row(
             modifier = Modifier
@@ -881,8 +883,9 @@ private fun ToggleRow(
     subtitle: String,
     checked: Boolean,
     onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column {
+    Column(modifier = modifier) {
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(theme.border))
         Row(
             modifier = Modifier
