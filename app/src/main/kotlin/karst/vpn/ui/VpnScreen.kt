@@ -637,6 +637,14 @@ private fun ServerSheetContent(
     if (subscriptionMenu != null) {
         latchedSubscriptionMenu = subscriptionMenu
     }
+    val listNestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset = Offset.Zero
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset = available
+            override suspend fun onPreFling(available: Velocity): Velocity = Velocity.Zero
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
+        }
+    }
 
     AnimatedContent(
         targetState = subscriptionMenu != null,
@@ -655,6 +663,7 @@ private fun ServerSheetContent(
                 accent = accent,
                 onBack = onCloseSubscription,
                 onDelete = { menu.id?.let(onDeleteSubscription) },
+                modifier = Modifier.nestedScroll(listNestedScrollConnection),
             )
         } else {
             Column {
@@ -686,14 +695,6 @@ private fun ServerSheetContent(
                     // suppresses the list's own overscroll bounce at the edges — a nicer bounce
                     // would need a purpose-built local effect instead of relying on nested-scroll
                     // dispatch order, which isn't reliable to tune without on-device testing.
-                    val listNestedScrollConnection = remember {
-                        object : NestedScrollConnection {
-                            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset = Offset.Zero
-                            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset = available
-                            override suspend fun onPreFling(available: Velocity): Velocity = Velocity.Zero
-                            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
-                        }
-                    }
                     val listState = rememberLazyListState()
 
                     RefreshAllButton(
@@ -929,10 +930,14 @@ private fun SubscriptionMenuContent(
     accent: Color,
     onBack: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var confirmDelete by remember(subscription.id) { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -1509,41 +1514,44 @@ private fun SettingsChoiceRow(
     onClick: () -> Unit,
 ) {
     val context = LocalContext.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {
-                    Haptics.click(context)
-                    onClick()
-                },
-            )
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
+    Column {
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(theme.border))
+        Row(
             modifier = Modifier
-                .size(18.dp)
-                .clip(CircleShape)
-                .border(1.5.dp, if (selected) accent else theme.border, CircleShape)
-                .padding(4.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape)
-                        .background(accent),
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        Haptics.click(context)
+                        onClick()
+                    },
                 )
+                .padding(vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text(title, fontWeight = FontWeight.Medium, fontSize = 14.5.sp, color = theme.ink)
+                Text(subtitle, fontSize = 12.sp, color = theme.mutedInk)
             }
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.Medium, fontSize = 14.5.sp, color = theme.ink)
-            Text(subtitle, fontSize = 12.sp, color = theme.mutedInk)
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .border(1.5.dp, if (selected) accent else theme.border, CircleShape)
+                    .padding(4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(accent),
+                    )
+                }
+            }
         }
     }
 }
