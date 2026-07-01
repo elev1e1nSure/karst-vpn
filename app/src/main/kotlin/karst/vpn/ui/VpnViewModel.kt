@@ -159,14 +159,16 @@ class VpnViewModel(
                             "Сервер добавлен"
                         }
                     }
-                    text.startsWith("http://", ignoreCase = true) ||
-                        text.startsWith("https://", ignoreCase = true) -> {
+                    text.startsWith("https://", ignoreCase = true) -> {
                         serverRepository.addSubscription(text).map { summary ->
                             summary.firstServerId?.let { settingsRepository.setSelectedServerId(it) }
                             summary.message
                         }
                     }
-                    else -> Result.failure(IllegalArgumentException("Не похоже на VLESS-ссылку или URL подписки"))
+                    text.startsWith("http://", ignoreCase = true) -> {
+                        Result.failure(IllegalArgumentException("Подписка должна использовать HTTPS"))
+                    }
+                    else -> Result.failure(IllegalArgumentException("Не похоже на VLESS-ссылку или HTTPS URL подписки"))
                 }
             }
 

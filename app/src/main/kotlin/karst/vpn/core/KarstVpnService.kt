@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
@@ -31,6 +32,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 class KarstVpnService : VpnService(), CommandServerHandler {
@@ -70,9 +72,12 @@ class KarstVpnService : VpnService(), CommandServerHandler {
 
     override fun onDestroy() {
         AppLogBuffer.append("onDestroy() called")
-        scope.launch { stopTunnel() }
-        scope.cancel()
-        super.onDestroy()
+        try {
+            runBlocking { stopTunnel() }
+        } finally {
+            scope.cancel()
+            super.onDestroy()
+        }
     }
 
     override fun onRevoke() {
@@ -225,7 +230,7 @@ class KarstVpnService : VpnService(), CommandServerHandler {
 
         fun disconnect(context: Context) {
             val intent = Intent(context, KarstVpnService::class.java).setAction(ACTION_DISCONNECT)
-            ContextCompat.startForegroundService(context, intent)
+            context.startService(intent)
         }
 
         private var libboxReady = false
@@ -239,10 +244,13 @@ class KarstVpnService : VpnService(), CommandServerHandler {
                 tempPath = context.cacheDir.path
                 fixAndroidStack = true
                 logMaxLines = 2000
-                debug = true
+                debug = context.isDebuggable()
             }
             Libbox.setup(options)
             libboxReady = true
         }
+
+        private fun Context.isDebuggable(): Boolean =
+            (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 }

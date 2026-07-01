@@ -135,7 +135,7 @@ class VpnViewModelTest {
         viewModel.addServerInput("invalid-vless-link")
 
         val state = viewModel.uiState.first { it.addServerError != null }
-        assertEquals("Не похоже на VLESS-ссылку или URL подписки", state.addServerError)
+        assertEquals("Не похоже на VLESS-ссылку или HTTPS URL подписки", state.addServerError)
     }
 
     @Test

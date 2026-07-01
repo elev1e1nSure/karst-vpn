@@ -9,11 +9,13 @@
 
     <application
         android:name=".KarstApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
-        android:theme="@style/Theme.Karst">
+        android:theme="@style/Theme.Karst"
+        android:usesCleartextTraffic="false">
 
         <activity
             android:name="karst.vpn.MainActivity"
