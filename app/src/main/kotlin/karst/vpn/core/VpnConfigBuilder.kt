@@ -1,5 +1,6 @@
 package karst.vpn.core
 
+import karst.vpn.data.RoutingMode
 import karst.vpn.data.SettingsRepository
 import karst.vpn.data.entities.ServerEntity
 import kotlinx.serialization.json.Json
@@ -16,12 +17,16 @@ object VpnConfigBuilder {
         ignoreUnknownKeys = true
     }
 
-    fun build(server: ServerEntity, dnsDohUrl: String = SettingsRepository.DEFAULT_DNS_DOH_URL): String {
+    fun build(
+        server: ServerEntity,
+        dnsDohUrl: String = SettingsRepository.DEFAULT_DNS_DOH_URL,
+        routingMode: RoutingMode = RoutingMode.BypassRu,
+    ): String {
         val outbound = json.parseToJsonElement(server.outboundConfigJson).jsonObject
         return json.encodeToString(
             JsonObject.serializer(),
             buildJsonObject {
-                put("dns", dns(dnsDohUrl))
+                put("dns", dns(dnsDohUrl, routingMode))
                 put("inbounds", buildJsonArray { add(tunInbound()) })
                 put(
                     "outbounds",
@@ -30,13 +35,13 @@ object VpnConfigBuilder {
                         add(buildJsonObject { put("type", "direct"); put("tag", "direct") })
                     },
                 )
-                put("route", route())
+                put("route", route(routingMode))
                 put("experimental", experimental())
             },
         )
     }
 
-    private fun dns(dnsDohUrl: String): JsonObject = buildJsonObject {
+    private fun dns(dnsDohUrl: String, routingMode: RoutingMode): JsonObject = buildJsonObject {
         put(
             "servers",
             buildJsonArray {
@@ -53,8 +58,12 @@ object VpnConfigBuilder {
         put(
             "rules",
             buildJsonArray {
-                add(privateDomainDnsRule())
-                add(ruDomainDnsRule())
+                if (routingMode == RoutingMode.BypassLocal || routingMode == RoutingMode.BypassRu) {
+                    add(privateDomainDnsRule())
+                }
+                if (routingMode == RoutingMode.BypassRu) {
+                    add(ruDomainDnsRule())
+                }
             },
         )
         put("final", "remote-doh")
@@ -73,15 +82,19 @@ object VpnConfigBuilder {
         put("stack", "mixed")
     }
 
-    private fun route(): JsonObject = buildJsonObject {
+    private fun route(routingMode: RoutingMode): JsonObject = buildJsonObject {
         put(
             "rules",
             buildJsonArray {
                 add(buildJsonObject { put("action", "sniff") })
                 add(buildJsonObject { put("protocol", "dns"); put("action", "hijack-dns") })
-                add(buildJsonObject { put("ip_is_private", true); put("outbound", "direct") })
-                add(privateDomainRouteRule())
-                add(ruDomainRouteRule())
+                if (routingMode == RoutingMode.BypassLocal || routingMode == RoutingMode.BypassRu) {
+                    add(buildJsonObject { put("ip_is_private", true); put("outbound", "direct") })
+                    add(privateDomainRouteRule())
+                }
+                if (routingMode == RoutingMode.BypassRu) {
+                    add(ruDomainRouteRule())
+                }
             },
         )
         put("final", "proxy")

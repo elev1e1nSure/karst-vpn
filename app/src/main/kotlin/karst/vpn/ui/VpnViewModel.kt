@@ -10,8 +10,10 @@ import karst.vpn.core.ConnectionStateHolder
 import karst.vpn.data.ImportCoordinator
 import karst.vpn.data.LatencyStatus
 import karst.vpn.data.LatencyTracker
+import karst.vpn.data.RoutingMode
 import karst.vpn.data.ServerRepository
 import karst.vpn.data.SettingsRepository
+import karst.vpn.data.SubscriptionAutoRefreshMode
 import karst.vpn.data.SubscriptionRefresher
 import karst.vpn.data.dao.ServerWithSubscription
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +39,9 @@ data class VpnUiState(
     val servers: List<UiServer> = emptyList(),
     val subscriptionGroups: List<UiSubscription> = emptyList(),
     val selectedServerId: String? = null,
+    val routingMode: RoutingMode = RoutingMode.BypassRu,
+    val subscriptionAutoRefreshMode: SubscriptionAutoRefreshMode = SubscriptionAutoRefreshMode.Auto,
+    val subscriptionAutoRefreshHours: Int = SettingsRepository.DEFAULT_AUTO_REFRESH_HOURS,
     val addServerLoading: Boolean = false,
     val addServerError: String? = null,
     val importMessage: String? = null,
@@ -46,6 +51,9 @@ data class VpnUiState(
 private data class SettingsState(
     val selectedServerId: String?,
     val darkModeOn: Boolean,
+    val routingMode: RoutingMode,
+    val subscriptionAutoRefreshMode: SubscriptionAutoRefreshMode,
+    val subscriptionAutoRefreshHours: Int,
 )
 
 private data class ConnectionState(
@@ -100,8 +108,11 @@ class VpnViewModel(
     private val settingsState = combine(
         settingsRepository.selectedServerId,
         settingsRepository.darkMode,
-    ) { selectedServerId, darkModeOn ->
-        SettingsState(selectedServerId, darkModeOn)
+        settingsRepository.routingMode,
+        settingsRepository.subscriptionAutoRefreshMode,
+        settingsRepository.subscriptionAutoRefreshHours,
+    ) { selectedServerId, darkModeOn, routingMode, autoRefreshMode, autoRefreshHours ->
+        SettingsState(selectedServerId, darkModeOn, routingMode, autoRefreshMode, autoRefreshHours)
     }
 
     private val connectionState = combine(
@@ -155,6 +166,9 @@ class VpnViewModel(
             servers = servers,
             subscriptionGroups = groups,
             selectedServerId = settings.selectedServerId ?: servers.firstOrNull()?.id,
+            routingMode = settings.routingMode,
+            subscriptionAutoRefreshMode = settings.subscriptionAutoRefreshMode,
+            subscriptionAutoRefreshHours = settings.subscriptionAutoRefreshHours,
             addServerLoading = addState.loading,
             addServerError = addState.error,
             importMessage = message,
@@ -171,6 +185,24 @@ class VpnViewModel(
     fun setDarkMode(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setDarkMode(enabled)
+        }
+    }
+
+    fun setRoutingMode(mode: RoutingMode) {
+        viewModelScope.launch {
+            settingsRepository.setRoutingMode(mode)
+        }
+    }
+
+    fun setSubscriptionAutoRefreshMode(mode: SubscriptionAutoRefreshMode) {
+        viewModelScope.launch {
+            settingsRepository.setSubscriptionAutoRefreshMode(mode)
+        }
+    }
+
+    fun setSubscriptionAutoRefreshHours(hours: Int) {
+        viewModelScope.launch {
+            settingsRepository.setSubscriptionAutoRefreshHours(hours)
         }
     }
 

@@ -91,7 +91,8 @@ class KarstVpnService : VpnService(), CommandServerHandler {
                 val app = KarstApplication.instance
                 val server = app.container.serverRepository.getServer(serverId) ?: error("Сервер не найден")
                 val dnsUrl = app.container.settingsRepository.dnsDohUrl.first()
-                val config = VpnConfigBuilder.build(server, dnsUrl)
+                val routingMode = app.container.settingsRepository.routingMode.first()
+                val config = VpnConfigBuilder.build(server, dnsUrl, routingMode)
 
                 commandServer?.closeService()
                 commandServer?.close()

@@ -45,6 +45,9 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -96,7 +99,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -339,7 +341,12 @@ private fun MainVpnScreen(
             containerColor = theme.appBg,
             dragHandle = dragHandle,
         ) {
-            Column(modifier = Modifier.padding(horizontal = 22.dp).padding(bottom = 28.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 22.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 28.dp),
+            ) {
                 SettingsSheetContent(
                     theme = theme,
                     accent = accent,
@@ -1403,7 +1410,7 @@ private fun RoutingModeSection(
     SettingsChoiceRow(theme, accent, "Обход локалки", "Локальные сети и private IP идут напрямую", selectedMode == RoutingMode.BypassLocal) {
         onSelect(RoutingMode.BypassLocal)
     }
-    SettingsChoiceRow(theme, accent, "Обход RU", "Домены .ru, .su и .рф идут напрямую", selectedMode == RoutingMode.BypassRu) {
+    SettingsChoiceRow(theme, accent, "Обход RU", "RU-домены и локальные сети идут напрямую", selectedMode == RoutingMode.BypassRu) {
         onSelect(RoutingMode.BypassRu)
     }
 }
