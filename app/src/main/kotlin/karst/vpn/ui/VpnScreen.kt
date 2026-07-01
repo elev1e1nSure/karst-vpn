@@ -62,7 +62,6 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Event
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
@@ -998,17 +997,6 @@ private fun SubscriptionMenuContent(
 
         SubscriptionDetailsCard(subscription = subscription, theme = theme)
 
-        subscription.lastRefreshedAtEpochMs?.let { refreshedAt ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(horizontal = 2.dp),
-            ) {
-                Icon(Icons.Filled.History, contentDescription = null, tint = theme.mutedInk, modifier = Modifier.size(14.dp))
-                Text("Обновлено ${formatEpochMillis(refreshedAt)}", fontSize = 11.sp, color = theme.mutedInk)
-            }
-        }
-
         subscription.lastRefreshError?.takeIf { it.isNotBlank() }?.let { error ->
             Row(
                 modifier = Modifier
@@ -1162,17 +1150,6 @@ private fun SubscriptionDetailsCard(subscription: UiSubscription, theme: VpnColo
             IconDetailRow(Icons.Filled.Language, "Страница профиля", it, theme, monospace = true)
         }
         IconDetailRow(Icons.Filled.Schedule, "Обновление профиля", formatUpdateInterval(subscription.profileUpdateIntervalHours), theme)
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(if (subscription.routingEnabled == true) theme.ink else theme.border),
-            )
-            Text("Роутинг профиля", fontSize = 12.5.sp, color = theme.ink, modifier = Modifier.weight(1f))
-            Text(formatOptionalBoolean(subscription.routingEnabled), fontSize = 12.sp, color = theme.mutedInk)
-        }
     }
 }
 
@@ -1722,16 +1699,6 @@ private fun daysLeftLabel(days: Long): String {
 
 private fun formatUpdateInterval(hours: Int?): String =
     hours?.takeIf { it > 0 }?.let { "$it ч" } ?: "Не указан"
-
-private fun formatOptionalBoolean(value: Boolean?): String =
-    when (value) {
-        true -> "Включён"
-        false -> "Выключен"
-        null -> "Не указан"
-    }
-
-private fun formatEpochMillis(value: Long?): String =
-    value?.let { dateFormatter().format(Date(it)) } ?: "Не указано"
 
 private fun formatEpochSeconds(value: Long?): String =
     value?.let { dateFormatter().format(Date(it * 1000)) } ?: "Не указано"
