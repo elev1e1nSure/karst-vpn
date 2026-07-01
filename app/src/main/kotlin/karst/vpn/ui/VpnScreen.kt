@@ -3,7 +3,6 @@ package karst.vpn.ui
 import karst.vpn.R
 import karst.vpn.core.ConnectionPhase
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
@@ -289,29 +290,9 @@ private fun Header(theme: VpnColors, onSettingsClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 18.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_logo),
-                contentDescription = "Karst Logo",
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(8.dp))
-            )
-            Text(
-                text = "Karst",
-                fontFamily = FontFamily.Serif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = theme.ink
-            )
-        }
-
         Pressable(onClick = onSettingsClick, pressedScale = 0.92f, modifier = Modifier.testTag("settings_btn")) {
             Box(
                 modifier = Modifier
@@ -761,6 +742,11 @@ private fun AddServerForm(
     onCancel: () -> Unit,
     onSubmit: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val clipboardManager = remember(context) {
+        context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -777,6 +763,30 @@ private fun AddServerForm(
             singleLine = true,
             enabled = !loading,
             textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = theme.ink),
+            trailingIcon = {
+                Pressable(
+                    onClick = {
+                        clipboardManager.primaryClip
+                            ?.takeIf { it.itemCount > 0 }
+                            ?.getItemAt(0)
+                            ?.coerceToText(context)
+                            ?.toString()
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let(onChangeValue)
+                    },
+                    enabled = !loading,
+                    modifier = Modifier.testTag("paste_clipboard_btn"),
+                ) {
+                    Box(modifier = Modifier.size(36.dp), contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.ContentPaste,
+                            contentDescription = "Вставить из буфера",
+                            tint = theme.mutedInk,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = theme.pageBg,
                 unfocusedContainerColor = theme.pageBg,
