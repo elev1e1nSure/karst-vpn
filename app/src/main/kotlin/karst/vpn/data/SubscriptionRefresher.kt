@@ -36,7 +36,7 @@ class SubscriptionRefresher(
             database.withTransaction {
                 servers.deleteBySubscriptionId(id)
                 servers.upsertAll(serverEntities)
-                subscriptions.upsert(
+                subscriptions.update(
                     subscription.copy(
                         displayName = fetchResult.metadata.profileTitle ?: subscription.displayName,
                         announce = fetchResult.metadata.announce,

@@ -257,6 +257,10 @@ private class FakeSubscriptionDao(private val db: FakeDatabaseState) : Subscript
         db.subscriptions[subscription.id] = subscription
         db.subscriptionsFlow.value = db.subscriptions.values.toList()
     }
+    override suspend fun update(subscription: SubscriptionEntity) {
+        db.subscriptions[subscription.id] = subscription
+        db.subscriptionsFlow.value = db.subscriptions.values.toList()
+    }
     override suspend fun delete(subscription: SubscriptionEntity) {
         db.subscriptions.remove(subscription.id)
         db.servers.values.removeIf { it.subscriptionId == subscription.id }

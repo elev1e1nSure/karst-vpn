@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import karst.vpn.data.entities.SubscriptionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -12,6 +13,9 @@ import kotlinx.coroutines.flow.Flow
 interface SubscriptionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(subscription: SubscriptionEntity)
+
+    @Update
+    suspend fun update(subscription: SubscriptionEntity)
 
     @Delete
     suspend fun delete(subscription: SubscriptionEntity)
