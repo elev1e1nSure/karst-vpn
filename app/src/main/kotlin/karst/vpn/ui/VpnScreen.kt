@@ -661,21 +661,21 @@ private fun SubscriptionGroupHeader(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .background(accent.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                        .padding(7.dp),
+                        .background(accent.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                        .padding(10.dp),
                 ) {
                     if (isRefreshing) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(22.dp),
                             color = accent,
-                            strokeWidth = 2.dp,
+                            strokeWidth = 2.5.dp,
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Filled.Refresh,
                             contentDescription = "Обновить подписку",
                             tint = accent,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(22.dp),
                         )
                     }
                 }
@@ -707,9 +707,13 @@ private fun ServerRow(
                     .clip(CircleShape)
                     .background(if (isSelected) accent else theme.border),
             )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(server.name, fontWeight = FontWeight.Medium, fontSize = 14.5.sp, color = theme.ink)
-                Text(server.latencyLabel, fontSize = 12.sp, color = theme.mutedInk)
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(server.name, fontWeight = FontWeight.Medium, fontSize = 16.sp, color = theme.ink)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(server.latencyLabel, fontSize = 14.sp, color = theme.mutedInk)
             }
             if (isSelected) {
                 Icon(Icons.Filled.Check, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
