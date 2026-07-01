@@ -15,18 +15,3 @@ Karst — приложение для подключения к VLESS-серве
 ## Установка
 
 APK-файлы доступны в [Releases](https://github.com/elev1e1nSure/karst-vpn/releases) — скачать последнюю версию и установить вручную.
-
-## Для разработчиков
-
-Стек: Kotlin, Jetpack Compose, Room, sing-box.
-
-```powershell
-.\gradlew.bat assembleDebug   # debug APK
-.\gradlew.bat test            # тесты
-```
-
-С [just](https://github.com/casey/just): `just dbg`, `just rel`, `just test`, `just` — список команд.
-
-## Безопасность
-
-Не коммитить: `local.properties`, keystore-файлы, реальные VPN-ссылки/подписки, приватные endpoint-ы и пользовательские логи.
