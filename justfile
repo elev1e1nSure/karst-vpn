@@ -1,28 +1,27 @@
 _default:
     @just --list
 
-[dependencies]
-shell := ["pwsh", "-NoLogo", "-Command"]
+set shell := ["pwsh", "-NoLogo", "-Command"]
 
 # Build debug APK
 dbg:
-    ./gradlew assembleDebug
+    ./gradlew.bat assembleDebug
 
 # Build release APK
 rel:
-    ./gradlew assembleRelease
+    ./gradlew.bat assembleRelease
 
 # Run unit tests
 test:
-    ./gradlew test
+    ./gradlew.bat test
 
 # Clean build outputs
 clean:
-    ./gradlew clean
+    ./gradlew.bat clean
 
 # Build sing-box AAR (pass tag, e.g. just lib v1.14.0)
 lib tag='v1.13.14':
-    {{shell}} "./scripts/build_libbox.ps1 -SingBoxTag {{tag}}"
+    ./scripts/build_libbox.ps1 -SingBoxTag {{tag}}
 
 # Full release pipeline — test, build, sign
 all: test rel
