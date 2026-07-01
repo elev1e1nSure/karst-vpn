@@ -48,9 +48,10 @@ android {
         }
     }
 
-    androidComponents.onVariants(selector().withBuildType("release")) { variant ->
-        variant.outputs.forEach { output ->
-            output.outputFileName.set("karst-vpn-v${variant.versionName.get()}.apk")
+    applicationVariants.all {
+        outputs.all {
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                "karst-vpn-v${versionName}.apk"
         }
     }
 
