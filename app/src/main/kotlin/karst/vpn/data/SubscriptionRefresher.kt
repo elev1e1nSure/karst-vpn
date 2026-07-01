@@ -8,6 +8,8 @@ import karst.vpn.link.SubscriptionParser
 import karst.vpn.link.toImportSummary
 import karst.vpn.link.toServerEntity
 import karst.vpn.net.SubscriptionFetcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 class SubscriptionRefresher(
     private val database: KarstDatabase,
@@ -19,10 +21,13 @@ class SubscriptionRefresher(
     suspend fun refreshAll(): Result<ImportSummary> = runCatching {
         val ids = subscriptions.getAllIds()
         if (ids.isEmpty()) return@runCatching ImportSummary(imported = 0, skipped = 0, firstServerId = null, message = "")
+        val summaries = coroutineScope {
+            ids.map { id -> async { refresh(id) } }.map { it.await() }
+        }
         var totalImported = 0
         var lastFirstServerId: String? = null
-        ids.forEach { id ->
-            refresh(id).onSuccess { summary ->
+        summaries.forEach { result ->
+            result.onSuccess { summary ->
                 totalImported += summary.imported
                 if (summary.firstServerId != null) lastFirstServerId = summary.firstServerId
             }

@@ -19,6 +19,17 @@ open class LogRingBuffer(
                 buffer.removeFirst()
             }
             buffer.addLast(line)
+            // sing-box can call this very frequently (e.g. while connecting); skip the
+            // O(capacity) snapshot+publish when nobody is collecting `lines` to avoid
+            // needless allocation churn. refresh() catches the screen back up on open.
+            if (mutableLines.subscriptionCount.value > 0) {
+                mutableLines.value = buffer.toList()
+            }
+        }
+    }
+
+    fun refresh() {
+        synchronized(lock) {
             mutableLines.value = buffer.toList()
         }
     }

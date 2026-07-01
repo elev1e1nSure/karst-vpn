@@ -1,5 +1,6 @@
 package karst.vpn.ui
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -14,14 +15,20 @@ import karst.vpn.data.SettingsRepository
 import karst.vpn.data.SubscriptionRefresher
 import karst.vpn.data.dao.ServerWithSubscription
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
+private const val LATENCY_TEST_CONCURRENCY = 6
+
+@Immutable
 data class VpnUiState(
     val darkModeOn: Boolean = true,
     val phase: ConnectionPhase = ConnectionPhase.Off,
@@ -70,13 +77,22 @@ class VpnViewModel(
     init {
         viewModelScope.launch {
             serverRepository.observeServers().collect { servers ->
-                servers
-                    .filter { it.server.latencyStatus == "UNTESTED" }
-                    .forEach {
-                        withContext(Dispatchers.IO) {
-                            latencyTracker.testLatency(it.server.id)
+                val untested = servers.filter { it.server.latencyStatus == "UNTESTED" }
+                if (untested.isEmpty()) return@collect
+
+                // Testing servers one at a time (each a blocking socket connect up to 1.5s)
+                // trickled DB writes and UI recomposition over tens of seconds for large
+                // subscriptions. Bounded concurrency finishes the whole batch in a few rounds.
+                val semaphore = Semaphore(LATENCY_TEST_CONCURRENCY)
+                coroutineScope {
+                    untested.forEach { row ->
+                        launch(Dispatchers.IO) {
+                            semaphore.withPermit {
+                                latencyTracker.testLatency(row.server.id)
+                            }
                         }
                     }
+                }
             }
         }
     }

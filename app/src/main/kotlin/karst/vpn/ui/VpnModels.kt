@@ -1,5 +1,8 @@
 package karst.vpn.ui
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class UiServer(
     val id: String,
     val name: String,
@@ -9,6 +12,7 @@ data class UiServer(
     val subscriptionId: String? = null,
 )
 
+@Immutable
 data class UiSubscription(
     val id: String?,
     val name: String,
