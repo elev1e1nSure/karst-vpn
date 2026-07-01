@@ -1532,7 +1532,7 @@ private fun SettingsPickerDialog(
                 fontWeight = FontWeight.Medium,
                 fontSize = 17.sp,
                 color = theme.ink,
-                modifier = Modifier.padding(top = 18.dp, bottom = 2.dp),
+                modifier = Modifier.padding(top = 18.dp, bottom = 13.dp),
             )
             content()
             Spacer(modifier = Modifier.height(4.dp))
