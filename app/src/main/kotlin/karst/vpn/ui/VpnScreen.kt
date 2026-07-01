@@ -54,13 +54,22 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -82,6 +91,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -597,6 +607,7 @@ private fun ServerSheetContent(
             SubscriptionMenuContent(
                 subscription = subscriptionMenu,
                 theme = theme,
+                accent = accent,
                 onBack = onCloseSubscription,
                 onDelete = { subscriptionMenu.id?.let(onDeleteSubscription) },
             )
@@ -866,6 +877,7 @@ private fun SubscriptionGroupHeaderRow(
 private fun SubscriptionMenuContent(
     subscription: UiSubscription,
     theme: VpnColors,
+    accent: Color,
     onBack: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -904,39 +916,48 @@ private fun SubscriptionMenuContent(
         }
 
         subscription.announce?.takeIf { it.isNotBlank() }?.let {
-            Text(
-                text = it,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
-                color = theme.mutedInk,
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
                     .background(theme.cardBg)
                     .border(1.dp, theme.border, RoundedCornerShape(14.dp))
                     .padding(12.dp),
-            )
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(Icons.Filled.Info, contentDescription = null, tint = theme.mutedInk, modifier = Modifier.size(16.dp))
+                Text(text = it, fontSize = 12.sp, lineHeight = 16.sp, color = theme.mutedInk)
+            }
         }
 
-        SubscriptionInfoSection(title = "Настройки", theme = theme) {
-            SubscriptionDetailRow("URL", subscription.url ?: "Не указан", theme, monospace = true)
-            SubscriptionDetailRow("Страница профиля", subscription.profileWebPageUrl ?: "Не указана", theme, monospace = true)
-            SubscriptionDetailRow("Интервал обновления", formatUpdateInterval(subscription.profileUpdateIntervalHours), theme)
-            SubscriptionDetailRow("Роутинг профиля", formatOptionalBoolean(subscription.routingEnabled), theme)
+        SubscriptionTrafficCard(subscription = subscription, theme = theme, accent = accent)
+
+        SubscriptionDetailsCard(subscription = subscription, theme = theme)
+
+        subscription.lastRefreshedAtEpochMs?.let { refreshedAt ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(horizontal = 2.dp),
+            ) {
+                Icon(Icons.Filled.History, contentDescription = null, tint = theme.mutedInk, modifier = Modifier.size(14.dp))
+                Text("Обновлено ${formatEpochMillis(refreshedAt)}", fontSize = 11.sp, color = theme.mutedInk)
+            }
         }
 
-        SubscriptionInfoSection(title = "Лимиты", theme = theme) {
-            SubscriptionDetailRow(
-                "Трафик",
-                formatTraffic(subscription.uploadBytes, subscription.downloadBytes, subscription.totalBytes),
-                theme,
-            )
-            SubscriptionDetailRow("Истекает", formatEpochSeconds(subscription.expireAtEpochSeconds), theme)
-        }
-
-        SubscriptionInfoSection(title = "Обновление", theme = theme) {
-            SubscriptionDetailRow("Последнее", formatEpochMillis(subscription.lastRefreshedAtEpochMs), theme)
-            SubscriptionDetailRow("Ошибка", subscription.lastRefreshError ?: "Нет", theme)
+        subscription.lastRefreshError?.takeIf { it.isNotBlank() }?.let { error ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(theme.danger.copy(alpha = 0.1f))
+                    .border(1.dp, theme.danger.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(Icons.Filled.Warning, contentDescription = null, tint = theme.danger, modifier = Modifier.size(16.dp))
+                Text(text = error, fontSize = 12.sp, lineHeight = 16.sp, color = theme.danger)
+            }
         }
 
         if (confirmDelete) {
@@ -1000,11 +1021,12 @@ private fun SubscriptionMenuContent(
 }
 
 @Composable
-private fun SubscriptionInfoSection(
-    title: String,
-    theme: VpnColors,
-    content: @Composable () -> Unit,
-) {
+private fun SubscriptionTrafficCard(subscription: UiSubscription, theme: VpnColors, accent: Color) {
+    val used = listOfNotNull(subscription.uploadBytes, subscription.downloadBytes).takeIf { it.isNotEmpty() }?.sum()
+    val total = subscription.totalBytes
+    val fraction = if (used != null && total != null && total > 0) (used.toFloat() / total.toFloat()).coerceIn(0f, 1f) else null
+    val daysLeft = daysUntilEpochSeconds(subscription.expireAtEpochSeconds)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1012,31 +1034,106 @@ private fun SubscriptionInfoSection(
             .background(theme.cardBg)
             .border(1.dp, theme.border, RoundedCornerShape(14.dp))
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = theme.ink)
-        content()
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Filled.DataUsage, contentDescription = null, tint = theme.mutedInk, modifier = Modifier.size(16.dp))
+            Text("Трафик", fontWeight = FontWeight.Medium, fontSize = 12.5.sp, color = theme.ink, modifier = Modifier.weight(1f))
+            Text(
+                formatTraffic(subscription.uploadBytes, subscription.downloadBytes, subscription.totalBytes),
+                fontSize = 12.sp,
+                color = theme.mutedInk,
+            )
+        }
+        if (fraction != null) {
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = if (fraction >= 0.9f) theme.danger else accent,
+                trackColor = theme.border,
+            )
+        }
+
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(theme.border))
+
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Filled.Event, contentDescription = null, tint = theme.mutedInk, modifier = Modifier.size(16.dp))
+            Text("Истекает", fontWeight = FontWeight.Medium, fontSize = 12.5.sp, color = theme.ink, modifier = Modifier.weight(1f))
+            Text(formatEpochSeconds(subscription.expireAtEpochSeconds), fontSize = 12.sp, color = theme.mutedInk)
+            if (daysLeft != null) {
+                val pillColor = if (daysLeft <= 3) theme.danger else accent
+                Text(
+                    text = daysLeftLabel(daysLeft),
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = pillColor,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(pillColor.copy(alpha = 0.12f))
+                        .padding(horizontal = 7.dp, vertical = 3.dp),
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun SubscriptionDetailRow(
+private fun SubscriptionDetailsCard(subscription: UiSubscription, theme: VpnColors) {
+    val profilePage = subscription.profileWebPageUrl?.takeIf { it.isNotBlank() && it != subscription.url }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(theme.cardBg)
+            .border(1.dp, theme.border, RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp),
+    ) {
+        IconDetailRow(Icons.Filled.Link, "Ссылка", subscription.url ?: "Не указана", theme, monospace = true)
+        profilePage?.let {
+            IconDetailRow(Icons.Filled.Language, "Страница профиля", it, theme, monospace = true)
+        }
+        IconDetailRow(Icons.Filled.Schedule, "Обновление профиля", formatUpdateInterval(subscription.profileUpdateIntervalHours), theme)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (subscription.routingEnabled == true) theme.ink else theme.border),
+            )
+            Text("Роутинг профиля", fontSize = 12.5.sp, color = theme.ink, modifier = Modifier.weight(1f))
+            Text(formatOptionalBoolean(subscription.routingEnabled), fontSize = 12.sp, color = theme.mutedInk)
+        }
+    }
+}
+
+@Composable
+private fun IconDetailRow(
+    icon: ImageVector,
     label: String,
     value: String,
     theme: VpnColors,
     monospace: Boolean = false,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, fontSize = 11.sp, color = theme.mutedInk)
-        Text(
-            text = value,
-            fontFamily = if (monospace) FontFamily.Monospace else FontFamily.SansSerif,
-            fontSize = 12.5.sp,
-            lineHeight = 17.sp,
-            color = theme.ink,
-            maxLines = if (monospace) 3 else 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
+        Icon(icon, contentDescription = null, tint = theme.mutedInk, modifier = Modifier.size(16.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, fontSize = 11.sp, color = theme.mutedInk)
+            Text(
+                text = value,
+                fontFamily = if (monospace) FontFamily.Monospace else FontFamily.SansSerif,
+                fontSize = 12.5.sp,
+                lineHeight = 16.sp,
+                color = theme.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 
@@ -1332,6 +1429,22 @@ private fun ToggleRow(
             MiniSwitch(checked = checked, accent = accent, theme = theme, onToggle = toggleWithHaptic)
         }
     }
+}
+
+private fun daysUntilEpochSeconds(expireAtEpochSeconds: Long?): Long? =
+    expireAtEpochSeconds?.let { (it * 1000 - System.currentTimeMillis()) / 86_400_000L }
+
+private fun daysLeftLabel(days: Long): String {
+    if (days < 0) return "Истекло"
+    if (days == 0L) return "Сегодня"
+    val lastTwoDigits = days % 100
+    val word = when {
+        lastTwoDigits in 11..14 -> "дней"
+        days % 10 == 1L -> "день"
+        days % 10 in 2..4 -> "дня"
+        else -> "дней"
+    }
+    return "$days $word"
 }
 
 private fun formatUpdateInterval(hours: Int?): String =
