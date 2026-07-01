@@ -63,6 +63,15 @@ class SettingsRepository(
         dataStore.edit { it[DARK_MODE] = enabled }
     }
 
+    /** On first launch (no stored preference yet), seed dark mode from the system theme. */
+    suspend fun ensureDarkModeInitialized(systemIsDark: Boolean) {
+        dataStore.edit {
+            if (it[DARK_MODE] == null) {
+                it[DARK_MODE] = systemIsDark
+            }
+        }
+    }
+
     suspend fun setRoutingMode(mode: RoutingMode) {
         dataStore.edit { it[ROUTING_MODE] = mode.value }
     }
