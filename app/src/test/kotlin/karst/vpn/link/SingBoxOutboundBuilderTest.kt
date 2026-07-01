@@ -25,7 +25,7 @@ class SingBoxOutboundBuilderTest {
         assertEquals("443", outbound["server_port"]?.jsonPrimitive?.content)
         assertEquals(UUID, outbound["uuid"]?.jsonPrimitive?.content)
         assertEquals("xudp", outbound["packet_encoding"]?.jsonPrimitive?.content)
-        
+
         assertNull(outbound["flow"])
         assertNull(outbound["tls"])
         assertNull(outbound["transport"])
@@ -41,7 +41,7 @@ class SingBoxOutboundBuilderTest {
         assertTrue(tls!!["enabled"]!!.jsonPrimitive.boolean)
         assertEquals("my-sni", tls["server_name"]?.jsonPrimitive?.content)
         assertFalse(tls["insecure"]!!.jsonPrimitive.boolean)
-        
+
         val alpn = tls["alpn"]?.jsonArray
         assertNotNull(alpn)
         assertEquals(2, alpn!!.size)
@@ -70,8 +70,8 @@ class SingBoxOutboundBuilderTest {
         val tls = outbound["tls"]?.jsonObject
         assertNotNull(tls)
         assertTrue(tls!!["enabled"]!!.jsonPrimitive.boolean)
-        assertEquals("example.com", tls["server_name"]?.jsonPrimitive?.content) // Fallback to host
-        
+        assertEquals("example.com", tls["server_name"]?.jsonPrimitive?.content)
+
         val reality = tls["reality"]?.jsonObject
         assertNotNull(reality)
         assertTrue(reality!!["enabled"]!!.jsonPrimitive.boolean)
@@ -86,7 +86,6 @@ class SingBoxOutboundBuilderTest {
 
     @Test
     fun testBuildHttpAndHttpUpgrade() {
-        // Http
         val linkHttp = parseVlessLink("$BASE@example.com:80?security=none&type=http&host=h1,h2&path=%2Fhttp").getOrThrow()
         val outboundHttp = SingBoxOutboundBuilder.build(linkHttp)
         val transHttp = outboundHttp["transport"]?.jsonObject
@@ -99,7 +98,6 @@ class SingBoxOutboundBuilderTest {
         assertEquals("h1", hosts[0].jsonPrimitive.content)
         assertEquals("h2", hosts[1].jsonPrimitive.content)
 
-        // HttpUpgrade
         val linkHttpUpgrade = parseVlessLink("$BASE@example.com:80?security=none&type=httpupgrade&host=h1&path=%2Fup").getOrThrow()
         val outboundHttpUpgrade = SingBoxOutboundBuilder.build(linkHttpUpgrade)
         val transUp = outboundHttpUpgrade["transport"]?.jsonObject

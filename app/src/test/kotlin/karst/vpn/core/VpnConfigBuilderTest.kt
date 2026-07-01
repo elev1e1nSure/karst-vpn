@@ -33,14 +33,12 @@ class VpnConfigBuilderTest {
         val configStr = VpnConfigBuilder.build(server)
         val config = Json.parseToJsonElement(configStr).jsonObject
 
-        // Check top-level elements
         assertTrue(config.containsKey("dns"))
         assertTrue(config.containsKey("inbounds"))
         assertTrue(config.containsKey("outbounds"))
         assertTrue(config.containsKey("route"))
         assertTrue(config.containsKey("experimental"))
 
-        // Check outbounds: index 0 must be proxy, index 1 must be direct
         val outbounds = config["outbounds"]!!.jsonArray
         assertEquals(2, outbounds.size)
         assertEquals("vless", outbounds[0].jsonObject["type"]?.jsonPrimitive?.content)
@@ -48,7 +46,6 @@ class VpnConfigBuilderTest {
         assertEquals("direct", outbounds[1].jsonObject["type"]?.jsonPrimitive?.content)
         assertEquals("direct", outbounds[1].jsonObject["tag"]?.jsonPrimitive?.content)
 
-        // Check dns servers and rules
         val dns = config["dns"]!!.jsonObject
         assertEquals("remote-doh", dns["final"]?.jsonPrimitive?.content)
         assertTrue(dns["independent_cache"]!!.jsonPrimitive.boolean)
@@ -62,12 +59,10 @@ class VpnConfigBuilderTest {
         assertEquals("local", dnsServers[1].jsonObject["address"]?.jsonPrimitive?.content)
 
         val dnsRules = dns["rules"]!!.jsonArray
-        // verify rules exist and target local-dns
         assertTrue(dnsRules.size >= 2)
         assertEquals("local-dns", dnsRules[0].jsonObject["server"]?.jsonPrimitive?.content)
         assertEquals("local-dns", dnsRules[1].jsonObject["server"]?.jsonPrimitive?.content)
 
-        // Check route
         val route = config["route"]!!.jsonObject
         assertEquals("proxy", route["final"]?.jsonPrimitive?.content)
         assertTrue(route["auto_detect_interface"]!!.jsonPrimitive.boolean)
@@ -75,18 +70,15 @@ class VpnConfigBuilderTest {
         val routeRules = route["rules"]!!.jsonArray
         assertTrue(routeRules.size >= 5)
 
-        // 1. hijack-dns
         val dnsHijackRule = routeRules.firstOrNull { it.jsonObject["protocol"]?.jsonPrimitive?.content == "dns" }
         assertNotNull(dnsHijackRule)
         assertEquals("hijack-dns", dnsHijackRule!!.jsonObject["action"]?.jsonPrimitive?.content)
 
-        // 2. private ip to direct
         val privateIpRule = routeRules.firstOrNull { it.jsonObject["ip_is_private"]?.jsonPrimitive?.boolean == true }
         assertNotNull(privateIpRule)
         assertEquals("direct", privateIpRule!!.jsonObject["outbound"]?.jsonPrimitive?.content)
 
-        // 3. RU domains to direct
-        val ruDomainRule = routeRules.firstOrNull { 
+        val ruDomainRule = routeRules.firstOrNull {
             val suffixes = it.jsonObject["domain_suffix"]?.jsonArray
             suffixes != null && suffixes.any { s -> s.jsonPrimitive.content == ".ru" }
         }

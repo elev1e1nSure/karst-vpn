@@ -49,7 +49,6 @@ class KarstVpnService : VpnService(), CommandServerHandler {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_DISCONNECT -> {
-                android.util.Log.d("KarstVPN", "onStartCommand: DISCONNECT received")
                 scope.launch { stopTunnel() }
             }
             ACTION_CONNECT -> {
@@ -114,25 +113,19 @@ class KarstVpnService : VpnService(), CommandServerHandler {
 
     private suspend fun stopTunnel(error: String? = null) = withContext(NonCancellable) {
         withContext(Dispatchers.IO) {
-            android.util.Log.d("KarstVPN", "stopTunnel: starting cleanup, tunDescriptor=$activeTunDescriptor")
             runCatching { commandServer?.closeService() }
-                .onSuccess { android.util.Log.d("KarstVPN", "stopTunnel: closeService OK") }
-                .onFailure { android.util.Log.e("KarstVPN", "closeService failed: ${it.message}", it) }
+                .onFailure { AppLogBuffer.append("Failed to close libbox service: ${it.message}") }
             runCatching { commandServer?.close() }
-                .onSuccess { android.util.Log.d("KarstVPN", "stopTunnel: commandServer.close() OK") }
-                .onFailure { android.util.Log.e("KarstVPN", "close failed: ${it.message}", it) }
+                .onFailure { AppLogBuffer.append("Failed to close command server: ${it.message}") }
             commandServer = null
 
-            android.util.Log.d("KarstVPN", "stopTunnel: closing tun descriptor (orig fd, from establish)")
             runCatching { activeTunDescriptor?.close() }
-                .onSuccess { android.util.Log.d("KarstVPN", "stopTunnel: tun descriptor closed OK") }
-                .onFailure { android.util.Log.e("KarstVPN", "tun descriptor close failed: ${it.message}", it) }
+                .onFailure { AppLogBuffer.append("Failed to close TUN descriptor: ${it.message}") }
             activeTunDescriptor = null
         }
         SocketProtectorRegistry.current = null
         ConnectionStateHolder.off(error)
         stopForegroundCompat()
-        android.util.Log.d("KarstVPN", "stopTunnel: calling stopSelf()")
         stopSelf()
     }
 

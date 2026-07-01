@@ -4,7 +4,6 @@ import androidx.room.DatabaseConfiguration
 import androidx.room.InvalidationTracker
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
-import java.io.IOException
 import java.util.concurrent.Executor
 import karst.vpn.data.dao.ServerDao
 import karst.vpn.data.dao.ServerWithSubscription
@@ -68,7 +67,6 @@ class ServerRepositoryTest {
         assertEquals(443, server.port)
         assertNull(server.subscriptionId)
 
-        // Verify it was saved in the DAO
         val saved = serverDao.getById(server.id)
         assertNotNull(saved)
         assertEquals("MyManual", saved?.displayName)
@@ -79,7 +77,7 @@ class ServerRepositoryTest {
         val url = "https://example.com/sub"
         val uuid = "11111111-1111-4111-8111-111111111111"
         val vlessList = "vless://$uuid@s1.com:443?security=none#S1\nvless://$uuid@s2.com:443?security=none#S2"
-        
+
         fetcher.result = Result.success(vlessList)
 
         val result = repository.addSubscription(url)
@@ -89,12 +87,10 @@ class ServerRepositoryTest {
         assertEquals(2, summary.imported)
         assertEquals(0, summary.skipped)
 
-        // Verify subscription is saved
         val subs = subscriptionDao.observeAll().first()
         assertEquals(1, subs.size)
         assertEquals("example.com", subs[0].displayName)
 
-        // Verify servers are saved
         val servers = serverDao.observeAllWithSubscriptions().first()
         assertEquals(2, servers.size)
         assertEquals("S1", servers[0].server.displayName)
@@ -125,18 +121,15 @@ class ServerRepositoryTest {
     fun testRefreshSubscription() = runTest {
         val url = "https://example.com/sub"
         val uuid = "11111111-1111-4111-8111-111111111111"
-        
-        // 1. Initial import of 2 servers
+
         fetcher.result = Result.success("vless://$uuid@s1.com:443?security=none#S1\nvless://$uuid@s2.com:443?security=none#S2")
-        val importResult = repository.addSubscription(url).getOrThrow()
+        repository.addSubscription(url).getOrThrow()
         val subId = subscriptionDao.observeAll().first()[0].id
 
-        // 2. Refresh with 1 new server
         fetcher.result = Result.success("vless://$uuid@s3.com:443?security=none#S3")
         val refreshResult = repository.refreshSubscription(subId)
         assertTrue(refreshResult.isSuccess)
 
-        // Verify old servers are gone, new server is imported
         val servers = serverDao.observeAllWithSubscriptions().first()
         assertEquals(1, servers.size)
         assertEquals("S3", servers[0].server.displayName)
@@ -148,10 +141,8 @@ class ServerRepositoryTest {
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#Del"
         val server = repository.addManualServer(link).getOrThrow()
 
-        // Verify exists
         assertNotNull(serverDao.getById(server.id))
 
-        // Delete
         repository.deleteServer(server.id)
         assertNull(serverDao.getById(server.id))
     }
@@ -161,24 +152,20 @@ class ServerRepositoryTest {
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#Lat"
         val server = repository.addManualServer(link).getOrThrow()
 
-        // Untested initially
         assertEquals(LatencyStatus.Untested, serverDao.getById(server.id)?.latencyStatus)
 
-        // Test OK
         latencyProbe.result = LatencyResult.Ok(45L)
         repository.testLatency(server.id)
         var updated = serverDao.getById(server.id)
         assertEquals(LatencyStatus.Ok, updated?.latencyStatus)
         assertEquals(45L, updated?.latencyMs)
 
-        // Test Timeout
         latencyProbe.result = LatencyResult.Timeout
         repository.testLatency(server.id)
         updated = serverDao.getById(server.id)
         assertEquals(LatencyStatus.Timeout, updated?.latencyStatus)
         assertNull(updated?.latencyMs)
 
-        // Test Error
         latencyProbe.result = LatencyResult.Error("Failed")
         repository.testLatency(server.id)
         updated = serverDao.getById(server.id)
@@ -186,8 +173,6 @@ class ServerRepositoryTest {
         assertNull(updated?.latencyMs)
     }
 }
-
-// Fakes & Mocks definitions for the tests
 
 private class FakeDatabaseState {
     val servers = mutableMapOf<String, ServerEntity>()
@@ -261,6 +246,7 @@ private class FakeSubscriptionDao(private val db: FakeDatabaseState) : Subscript
     }
 }
 
+@Suppress("OVERRIDE_DEPRECATION")
 private class FakeKarstDatabase(
     private val serverDao: ServerDao,
     private val subscriptionDao: SubscriptionDao
@@ -283,12 +269,8 @@ private class FakeKarstDatabase(
 
 private class FakeSubscriptionFetcher : SubscriptionFetcher {
     var result: Result<String> = Result.success("")
-    var lastFetchedUrl: String? = null
 
-    override fun fetch(url: String): Result<String> {
-        lastFetchedUrl = url
-        return result
-    }
+    override fun fetch(url: String): Result<String> = result
 }
 
 private class FakeLatencyProbe : LatencyProbe {

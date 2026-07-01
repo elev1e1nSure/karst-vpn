@@ -49,7 +49,7 @@ class SubscriptionFetcherTest {
     @Test
     fun testFetchSuccess() {
         server.enqueue(MockResponse().setBody("subscription_content"))
-        
+
         val url = server.url("/sub").toString()
         val result = fetcher.fetch(url)
 

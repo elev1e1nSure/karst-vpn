@@ -42,7 +42,6 @@ val VpnLightColors = VpnColors(
     buttonOffIcon = Color(0xFF675F56),
 )
 
-/** Default accent — warm terracotta (#d97757). */
 val DefaultAccent = Color(0xFFD97757)
 
 enum class Mood(

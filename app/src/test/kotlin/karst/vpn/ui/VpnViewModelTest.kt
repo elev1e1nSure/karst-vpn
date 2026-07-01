@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.room.DatabaseConfiguration
 import androidx.room.InvalidationTracker
 import androidx.sqlite.db.SupportSQLiteOpenHelper
-import java.io.IOException
 import java.util.concurrent.Executor
 import karst.vpn.core.ConnectionPhase
 import karst.vpn.core.ConnectionStateHolder
@@ -24,11 +23,11 @@ import karst.vpn.net.LatencyResult
 import karst.vpn.net.SubscriptionFetcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -37,14 +36,12 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestWatcher
-import org.junit.rules.TemporaryFolder
 import org.junit.runner.Description
 import org.mockito.Mockito.mock
 
@@ -61,6 +58,7 @@ class MainDispatcherRule(
     }
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class VpnViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -88,13 +86,12 @@ class VpnViewModelTest {
         db = FakeKarstDatabase(serverDao, subscriptionDao)
         fetcher = FakeSubscriptionFetcher()
         latencyProbe = FakeLatencyProbe()
-        
+
         serverRepository = ServerRepository(db, fetcher, latencyProbe)
 
         val dataStore = FakeDataStore()
         settingsRepository = SettingsRepository(dataStore)
 
-        // Reset connection holder state
         ConnectionStateHolder.off()
 
         viewModel = VpnViewModel(serverRepository, settingsRepository)
@@ -154,13 +151,11 @@ class VpnViewModelTest {
 
     @Test
     fun testSelectAndDeleteServer() = testScope.runTest {
-        // Add manual server
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#MyServer"
         viewModel.addServerInput(link)
         var state = viewModel.uiState.first { it.importMessage != null }
         val id = state.servers[0].id
 
-        // Delete
         viewModel.deleteServer(id)
         state = viewModel.uiState.first { it.selectedServerId == null }
         assertTrue(state.servers.isEmpty())
@@ -194,8 +189,6 @@ class VpnViewModelTest {
         assertEquals("Connection Timeout", state.lastError)
     }
 }
-
-// Local duplicates of the Fakes so tests run in isolation of database implementations
 
 private class FakeDatabaseState {
     val servers = mutableMapOf<String, ServerEntity>()
@@ -269,6 +262,7 @@ private class FakeSubscriptionDao(private val db: FakeDatabaseState) : Subscript
     }
 }
 
+@Suppress("OVERRIDE_DEPRECATION")
 private class FakeKarstDatabase(
     private val serverDao: ServerDao,
     private val subscriptionDao: SubscriptionDao
@@ -291,12 +285,8 @@ private class FakeKarstDatabase(
 
 private class FakeSubscriptionFetcher : SubscriptionFetcher {
     var result: Result<String> = Result.success("")
-    var lastFetchedUrl: String? = null
 
-    override fun fetch(url: String): Result<String> {
-        lastFetchedUrl = url
-        return result
-    }
+    override fun fetch(url: String): Result<String> = result
 }
 
 private class FakeLatencyProbe : LatencyProbe {

@@ -93,7 +93,6 @@ class PlatformInterfaceImpl(
         val descriptor = builder.establish() ?: error("android: failed to establish vpn")
         val fd = descriptor.fd
         service.activeTunDescriptor = descriptor
-        android.util.Log.d("KarstVPN", "openTun: established, fd=$fd")
         return fd
     }
 

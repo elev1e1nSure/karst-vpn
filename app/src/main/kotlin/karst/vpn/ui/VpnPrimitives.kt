@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 
-/** Wraps [content] with the `style-active { transform: scale(...) }` press feedback used throughout the design. */
 @Composable
 fun Pressable(
     onClick: () -> Unit,
@@ -47,7 +46,6 @@ fun Pressable(
     }
 }
 
-/** The custom on/off track-and-knob switch from the design (46x28 track, 22dp knob). */
 @Composable
 fun MiniSwitch(checked: Boolean, accent: Color, theme: VpnColors, onToggle: () -> Unit) {
     val trackColor by animateColorAsState(

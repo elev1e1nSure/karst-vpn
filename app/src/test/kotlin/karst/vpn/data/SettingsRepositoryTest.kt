@@ -29,25 +29,20 @@ class SettingsRepositoryTest {
         val dataStore = FakeDataStore()
         val repository = SettingsRepository(dataStore)
 
-        // Check defaults
         assertNull(repository.selectedServerId.first())
         assertTrue(repository.darkMode.first())
         assertTrue(repository.notificationsEnabled.first())
         assertEquals(SettingsRepository.DEFAULT_DNS_DOH_URL, repository.dnsDohUrl.first())
 
-        // Change selected server
         repository.setSelectedServerId("server-uuid-1")
         assertEquals("server-uuid-1", repository.selectedServerId.first())
 
-        // Clear selected server
         repository.setSelectedServerId(null)
         assertNull(repository.selectedServerId.first())
 
-        // Toggle dark mode
         repository.setDarkMode(false)
         assertEquals(false, repository.darkMode.first())
 
-        // Toggle notifications
         repository.setNotificationsEnabled(false)
         assertEquals(false, repository.notificationsEnabled.first())
     }

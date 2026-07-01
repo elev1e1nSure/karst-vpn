@@ -92,7 +92,7 @@ dependencies {
     testImplementation(libs.androidx.room.testing)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
-    
+
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
@@ -100,6 +100,6 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.room.testing)
-    
+
     debugImplementation(libs.androidx.ui.tooling)
 }

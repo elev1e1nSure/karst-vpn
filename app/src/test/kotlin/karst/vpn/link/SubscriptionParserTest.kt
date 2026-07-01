@@ -55,18 +55,18 @@ class SubscriptionParserTest {
     @Test
     fun parsesMixedListWithGarbage() {
         val body = """
-            
+
             $LINK_ONE
             random garbage string
             ss://another-protocol-not-supported
-            
+
             $LINK_TWO
-            
+
         """.trimIndent()
         val result = SubscriptionParser.parse(body)
 
         assertEquals(2, result.links.size)
-        assertEquals(2, result.failures.size) // garbage and ss:// link
+        assertEquals(2, result.failures.size)
         assertEquals("random garbage string", result.failures[0].line)
         assertEquals("ss://another-protocol-not-supported", result.failures[1].line)
     }

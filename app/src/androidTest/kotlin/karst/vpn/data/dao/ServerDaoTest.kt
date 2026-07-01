@@ -68,7 +68,7 @@ class ServerDaoTest {
     fun testObserveServersWithSubscriptionJoin() = runTest {
         val sub = SubscriptionEntity(
             id = "sub1",
-            url = "http://url",
+            url = "https://example.com/sub",
             displayName = "My Subscription",
             lastRefreshedAtEpochMs = null,
             lastRefreshError = null,
@@ -125,7 +125,7 @@ class ServerDaoTest {
     fun testCascadeDeleteSubscriptionDeletesServers() = runTest {
         val sub = SubscriptionEntity(
             id = "sub_to_delete",
-            url = "http://url",
+            url = "https://example.com/sub",
             displayName = "To Delete",
             lastRefreshedAtEpochMs = null,
             lastRefreshError = null,
@@ -163,14 +163,11 @@ class ServerDaoTest {
         )
         serverDao.upsertAll(listOf(server1, server2))
 
-        // Verify they are inserted
         assertNotNull(serverDao.getById("s_sub1"))
         assertNotNull(serverDao.getById("s_sub2"))
 
-        // Delete subscription
         subscriptionDao.delete(sub)
 
-        // Verify servers are cascade deleted
         assertNull(serverDao.getById("s_sub1"))
         assertNull(serverDao.getById("s_sub2"))
     }
