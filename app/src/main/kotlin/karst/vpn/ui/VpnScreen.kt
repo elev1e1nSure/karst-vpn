@@ -31,6 +31,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -115,6 +116,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -1430,6 +1432,18 @@ private fun SettingsSheetContent(
     )
 }
 
+private fun routingModeLabel(mode: RoutingMode): String = when (mode) {
+    RoutingMode.Full -> "Полный VPN"
+    RoutingMode.BypassLocal -> "Обход локалки"
+    RoutingMode.BypassRu -> "Обход RU и локалки"
+}
+
+private fun autoRefreshModeLabel(mode: SubscriptionAutoRefreshMode, hours: Int): String = when (mode) {
+    SubscriptionAutoRefreshMode.Auto -> "Авто"
+    SubscriptionAutoRefreshMode.Off -> "Выкл"
+    SubscriptionAutoRefreshMode.EveryHours -> "Каждые $hours ч"
+}
+
 @Composable
 private fun RoutingModeSection(
     theme: VpnColors,
@@ -1437,15 +1451,25 @@ private fun RoutingModeSection(
     selectedMode: RoutingMode,
     onSelect: (RoutingMode) -> Unit,
 ) {
-    SettingsSectionTitle(theme, "Маршрутизация")
-    SettingsChoiceRow(theme, accent, "Полный VPN", "Весь трафик через выбранный сервер", selectedMode == RoutingMode.Full) {
-        onSelect(RoutingMode.Full)
-    }
-    SettingsChoiceRow(theme, accent, "Обход локалки", "Локальные сети и private IP идут напрямую", selectedMode == RoutingMode.BypassLocal) {
-        onSelect(RoutingMode.BypassLocal)
-    }
-    SettingsChoiceRow(theme, accent, "Обход RU и локалки", "RU-домены и локальные сети идут напрямую", selectedMode == RoutingMode.BypassRu) {
-        onSelect(RoutingMode.BypassRu)
+    var dialogOpen by remember { mutableStateOf(false) }
+
+    SettingsActionRow(theme, "Маршрутизация", routingModeLabel(selectedMode), onClick = { dialogOpen = true })
+
+    if (dialogOpen) {
+        SettingsPickerDialog(theme = theme, title = "Маршрутизация", onDismiss = { dialogOpen = false }) {
+            SettingsChoiceRow(theme, accent, "Полный VPN", "Весь трафик через выбранный сервер", selectedMode == RoutingMode.Full) {
+                onSelect(RoutingMode.Full)
+                dialogOpen = false
+            }
+            SettingsChoiceRow(theme, accent, "Обход локалки", "Локальные сети и private IP идут напрямую", selectedMode == RoutingMode.BypassLocal) {
+                onSelect(RoutingMode.BypassLocal)
+                dialogOpen = false
+            }
+            SettingsChoiceRow(theme, accent, "Обход RU и локалки", "RU-домены и локальные сети идут напрямую", selectedMode == RoutingMode.BypassRu) {
+                onSelect(RoutingMode.BypassRu)
+                dialogOpen = false
+            }
+        }
     }
 }
 
@@ -1458,46 +1482,84 @@ private fun AutoRefreshSection(
     onSetMode: (SubscriptionAutoRefreshMode) -> Unit,
     onSetHours: (Int) -> Unit,
 ) {
+    var dialogOpen by remember { mutableStateOf(false) }
     var hoursText by remember(hours) { mutableStateOf(hours.toString()) }
 
-    SettingsSectionTitle(theme, "Обновление подписок")
-    SettingsChoiceRow(theme, accent, "Авто", "По Profile-Update-Interval, иначе раз в 24 часа", mode == SubscriptionAutoRefreshMode.Auto) {
-        onSetMode(SubscriptionAutoRefreshMode.Auto)
-    }
-    SettingsChoiceRow(theme, accent, "Выкл", "Обновлять только вручную", mode == SubscriptionAutoRefreshMode.Off) {
-        onSetMode(SubscriptionAutoRefreshMode.Off)
-    }
-    SettingsChoiceRow(theme, accent, "Каждые N часов", "Фиксированный интервал для всех подписок", mode == SubscriptionAutoRefreshMode.EveryHours) {
-        onSetMode(SubscriptionAutoRefreshMode.EveryHours)
-    }
+    SettingsActionRow(theme, "Обновление подписок", autoRefreshModeLabel(mode, hours), onClick = { dialogOpen = true })
 
-    AnimatedVisibility(
-        visible = mode == SubscriptionAutoRefreshMode.EveryHours,
-        enter = expandVertically(tween(160)) + fadeIn(tween(160)),
-        exit = shrinkVertically(tween(120)) + fadeOut(tween(120)),
-    ) {
-        OutlinedTextField(
-            value = hoursText,
-            onValueChange = { raw ->
-                val digits = raw.filter(Char::isDigit).take(3)
-                hoursText = digits
-                digits.toIntOrNull()?.takeIf { it > 0 }?.let(onSetHours)
-            },
-            label = { Text("Часы") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            textStyle = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 14.sp, color = theme.ink),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = theme.pageBg,
-                unfocusedContainerColor = theme.pageBg,
-                focusedBorderColor = accent,
-                unfocusedBorderColor = theme.border,
-            ),
+    if (dialogOpen) {
+        SettingsPickerDialog(theme = theme, title = "Обновление подписок", onDismiss = { dialogOpen = false }) {
+            SettingsChoiceRow(theme, accent, "Авто", "По Profile-Update-Interval, иначе раз в 24 часа", mode == SubscriptionAutoRefreshMode.Auto) {
+                onSetMode(SubscriptionAutoRefreshMode.Auto)
+                dialogOpen = false
+            }
+            SettingsChoiceRow(theme, accent, "Выкл", "Обновлять только вручную", mode == SubscriptionAutoRefreshMode.Off) {
+                onSetMode(SubscriptionAutoRefreshMode.Off)
+                dialogOpen = false
+            }
+            SettingsChoiceRow(theme, accent, "Каждые N часов", "Фиксированный интервал для всех подписок", mode == SubscriptionAutoRefreshMode.EveryHours) {
+                onSetMode(SubscriptionAutoRefreshMode.EveryHours)
+            }
+
+            AnimatedVisibility(
+                visible = mode == SubscriptionAutoRefreshMode.EveryHours,
+                enter = expandVertically(tween(160)) + fadeIn(tween(160)),
+                exit = shrinkVertically(tween(120)) + fadeOut(tween(120)),
+            ) {
+                OutlinedTextField(
+                    value = hoursText,
+                    onValueChange = { raw ->
+                        val digits = raw.filter(Char::isDigit).take(3)
+                        hoursText = digits
+                        digits.toIntOrNull()?.takeIf { it > 0 }?.let(onSetHours)
+                    },
+                    label = { Text("Часы") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    textStyle = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 14.sp, color = theme.ink),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = theme.pageBg,
+                        unfocusedContainerColor = theme.pageBg,
+                        focusedBorderColor = accent,
+                        unfocusedBorderColor = theme.border,
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .testTag("auto_refresh_hours_input"),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsPickerDialog(
+    theme: VpnColors,
+    title: String,
+    onDismiss: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp)
-                .testTag("auto_refresh_hours_input"),
-        )
+                .clip(RoundedCornerShape(22.dp))
+                .background(theme.appBg)
+                .border(1.dp, theme.border, RoundedCornerShape(22.dp))
+                .padding(horizontal = 18.dp, vertical = 4.dp),
+        ) {
+            Text(
+                text = title,
+                fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.Medium,
+                fontSize = 17.sp,
+                color = theme.ink,
+                modifier = Modifier.padding(top = 18.dp, bottom = 2.dp),
+            )
+            content()
+            Spacer(modifier = Modifier.height(4.dp))
+        }
     }
 }
 
