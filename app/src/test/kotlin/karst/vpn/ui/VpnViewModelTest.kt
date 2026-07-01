@@ -162,7 +162,7 @@ class VpnViewModelTest {
         val state = viewModel.uiState.first { it.importMessage != null }
         assertEquals(1, state.servers.size)
         assertEquals("Sub1", state.servers[0].name)
-        assertEquals("Импортировано: 1", state.importMessage)
+        assertEquals("", state.importMessage)
     }
 
     @Test
@@ -226,7 +226,7 @@ private class FakeServerDao(private val db: FakeDatabaseState) : ServerDao {
         return db.serversFlow.map { list ->
             list.map { server ->
                 val sub = server.subscriptionId?.let { db.subscriptions[it] }
-                ServerWithSubscription(server, sub?.displayName)
+                ServerWithSubscription(server, sub?.displayName, sub?.announce)
             }.sortedWith(compareBy({ it.server.sortOrder }, { it.server.addedAtEpochMs }))
         }
     }

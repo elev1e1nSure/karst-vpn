@@ -33,8 +33,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
@@ -563,9 +561,9 @@ private fun ServerSheetContent(
                     ) {
                         SubscriptionGroupHeader(
                             name = group.name,
+                            announce = group.announce,
                             theme = theme,
                             accent = accent,
-                            isSubscription = group.id != null,
                             onRefresh = if (group.id != null) { { onRefreshSubscription(group.id) } } else null
                         )
                         group.servers.forEach { server ->
@@ -584,7 +582,7 @@ private fun ServerSheetContent(
         }
     }
 
-    importMessage?.let {
+    importMessage?.takeIf { it.isNotBlank() }?.let {
         Text(it, fontSize = 12.sp, color = accent, modifier = Modifier.padding(vertical = 8.dp))
     }
 
@@ -632,32 +630,36 @@ private fun ServerSheetContent(
 @Composable
 private fun SubscriptionGroupHeader(
     name: String,
+    announce: String?,
     theme: VpnColors,
     accent: Color,
-    isSubscription: Boolean,
     onRefresh: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        Icon(
-            imageVector = if (isSubscription) Icons.Filled.Cloud else Icons.Filled.Link,
-            contentDescription = null,
-            tint = theme.mutedInk,
-            modifier = Modifier.size(14.dp),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = name,
-            fontWeight = FontWeight.Medium,
-            fontSize = 11.sp,
-            color = theme.mutedInk,
-            letterSpacing = 0.8.sp,
+        Column(
             modifier = Modifier.weight(1f),
-        )
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                text = name,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = theme.ink,
+            )
+            announce?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    fontSize = 12.sp,
+                    color = theme.mutedInk,
+                    lineHeight = 16.sp,
+                )
+            }
+        }
         if (onRefresh != null) {
             var isRefreshing by remember { mutableStateOf(false) }
             LaunchedEffect(isRefreshing) {

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 data class ServerWithSubscription(
     @Embedded val server: ServerEntity,
     @ColumnInfo(name = "subscriptionName") val subscriptionName: String?,
+    @ColumnInfo(name = "subscriptionAnnounce") val subscriptionAnnounce: String?,
 )
 
 @Dao
@@ -24,7 +25,9 @@ interface ServerDao {
 
     @Query(
         """
-        SELECT servers.*, subscriptions.displayName AS subscriptionName
+        SELECT servers.*,
+            subscriptions.displayName AS subscriptionName,
+            subscriptions.announce AS subscriptionAnnounce
         FROM servers
         LEFT JOIN subscriptions ON subscriptions.id = servers.subscriptionId
         ORDER BY servers.sortOrder ASC, servers.addedAtEpochMs ASC

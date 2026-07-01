@@ -12,6 +12,7 @@ data class UiServer(
 data class UiSubscription(
     val id: String?,
     val name: String,
+    val announce: String? = null,
     val servers: List<UiServer>,
 )
 

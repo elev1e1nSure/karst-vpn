@@ -242,7 +242,7 @@ private class FakeServerDao(private val db: FakeDatabaseState) : ServerDao {
         return db.serversFlow.map { list ->
             list.map { server ->
                 val sub = server.subscriptionId?.let { db.subscriptions[it] }
-                ServerWithSubscription(server, sub?.displayName)
+                ServerWithSubscription(server, sub?.displayName, sub?.announce)
             }.sortedWith(compareBy({ it.server.sortOrder }, { it.server.addedAtEpochMs }))
         }
     }

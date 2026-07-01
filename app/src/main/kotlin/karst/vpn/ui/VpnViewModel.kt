@@ -101,9 +101,14 @@ class VpnViewModel(
         importMessage,
     ) { serverRows, settings, connection, addState, message ->
         val servers = serverRows.map { it.toUiServer() }
-        val groups = servers.groupBy { it.subscriptionId }.map { (subId, subServers) ->
-            val name = if (subId == null) "Вручную" else subServers.firstOrNull()?.tag?.substringAfterLast(" · ") ?: "Подписка"
-            UiSubscription(id = subId, name = name, servers = subServers)
+        val groups = serverRows.groupBy { it.server.subscriptionId }.map { (subId, subRows) ->
+            val name = if (subId == null) "Вручную" else subRows.firstOrNull()?.subscriptionName ?: "Подписка"
+            UiSubscription(
+                id = subId,
+                name = name,
+                announce = subRows.firstOrNull()?.subscriptionAnnounce,
+                servers = subRows.map { it.toUiServer() },
+            )
         }
         VpnUiState(
             darkModeOn = settings.darkModeOn,
@@ -165,7 +170,7 @@ class VpnViewModel(
                 .onSuccess { imported ->
                     imported.firstServerId?.let { settingsRepository.setSelectedServerId(it) }
                     addServerState.value = AddServerState()
-                    importMessage.value = imported.message
+                    importMessage.value = imported.message.hideImportCount()
                 }
                 .onFailure {
                     addServerState.value = AddServerState(error = it.message ?: "Не удалось добавить")
@@ -192,7 +197,7 @@ class VpnViewModel(
             }
             result
                 .onSuccess {
-                    importMessage.value = it.message
+                    importMessage.value = it.message.hideImportCount()
                 }
                 .onFailure {
                     importMessage.value = it.message ?: "Не удалось обновить подписку"
@@ -214,6 +219,9 @@ class VpnViewModel(
             ) as T
     }
 }
+
+private fun String.hideImportCount(): String =
+    if (startsWith("Импортировано:")) "" else this
 
 private fun ServerWithSubscription.toUiServer(): UiServer {
     val latencyLabel = when (server.latencyStatus) {
