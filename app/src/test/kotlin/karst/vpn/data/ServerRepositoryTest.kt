@@ -41,7 +41,10 @@ class ServerRepositoryTest {
     private val fetcher = FakeSubscriptionFetcher()
     private val latencyProbe = FakeLatencyProbe()
 
-    private val repository = ServerRepository(db, fetcher, latencyProbe)
+    private val repository = ServerRepository(db)
+    private val importCoordinator = ImportCoordinator(db, fetcher)
+    private val subscriptionRefresher = SubscriptionRefresher(db, fetcher)
+    private val latencyTracker = LatencyTracker(db, latencyProbe)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Before
@@ -58,11 +61,12 @@ class ServerRepositoryTest {
     @Test
     fun testAddManualServer() = runTest {
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#MyManual"
-        val result = repository.addManualServer(link)
+        val result = importCoordinator.importInput(link)
         assertTrue(result.isSuccess)
 
-        val server = result.getOrThrow()
-        assertEquals("MyManual", server.displayName)
+        val server = serverDao.getById(result.getOrThrow().firstServerId!!)
+        assertNotNull(server)
+        assertEquals("MyManual", server!!.displayName)
         assertEquals("example.com", server.host)
         assertEquals(443, server.port)
         assertNull(server.subscriptionId)
@@ -80,12 +84,11 @@ class ServerRepositoryTest {
 
         fetcher.result = Result.success(vlessList)
 
-        val result = repository.addSubscription(url)
+        val result = importCoordinator.importInput(url)
         assertTrue(result.isSuccess)
 
-        val summary = result.getOrThrow()
-        assertEquals(2, summary.imported)
-        assertEquals(0, summary.skipped)
+        val importResult = result.getOrThrow()
+        assertEquals("Импортировано: 2", importResult.message)
 
         val subs = subscriptionDao.observeAll().first()
         assertEquals(1, subs.size)
@@ -106,12 +109,11 @@ class ServerRepositoryTest {
 
         fetcher.result = Result.success(mixedContent)
 
-        val result = repository.addSubscription(url)
+        val result = importCoordinator.importInput(url)
         assertTrue(result.isSuccess)
 
-        val summary = result.getOrThrow()
-        assertEquals(2, summary.imported)
-        assertEquals(1, summary.skipped)
+        val importResult = result.getOrThrow()
+        assertTrue(importResult.message.startsWith("Импортировано: 2, пропущено: 1"))
 
         val servers = serverDao.observeAllWithSubscriptions().first()
         assertEquals(2, servers.size)
@@ -123,11 +125,11 @@ class ServerRepositoryTest {
         val uuid = "11111111-1111-4111-8111-111111111111"
 
         fetcher.result = Result.success("vless://$uuid@s1.com:443?security=none#S1\nvless://$uuid@s2.com:443?security=none#S2")
-        repository.addSubscription(url).getOrThrow()
+        importCoordinator.importInput(url).getOrThrow()
         val subId = subscriptionDao.observeAll().first()[0].id
 
         fetcher.result = Result.success("vless://$uuid@s3.com:443?security=none#S3")
-        val refreshResult = repository.refreshSubscription(subId)
+        val refreshResult = subscriptionRefresher.refresh(subId)
         assertTrue(refreshResult.isSuccess)
 
         val servers = serverDao.observeAllWithSubscriptions().first()
@@ -139,36 +141,36 @@ class ServerRepositoryTest {
     @Test
     fun testDeleteServer() = runTest {
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#Del"
-        val server = repository.addManualServer(link).getOrThrow()
+        val serverId = importCoordinator.importInput(link).getOrThrow().firstServerId!!
 
-        assertNotNull(serverDao.getById(server.id))
+        assertNotNull(serverDao.getById(serverId))
 
-        repository.deleteServer(server.id)
-        assertNull(serverDao.getById(server.id))
+        repository.deleteServer(serverId)
+        assertNull(serverDao.getById(serverId))
     }
 
     @Test
     fun testTestLatency() = runTest {
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#Lat"
-        val server = repository.addManualServer(link).getOrThrow()
+        val serverId = importCoordinator.importInput(link).getOrThrow().firstServerId!!
 
-        assertEquals(LatencyStatus.Untested, serverDao.getById(server.id)?.latencyStatus)
+        assertEquals(LatencyStatus.Untested, serverDao.getById(serverId)?.latencyStatus)
 
         latencyProbe.result = LatencyResult.Ok(45L)
-        repository.testLatency(server.id)
-        var updated = serverDao.getById(server.id)
+        latencyTracker.testLatency(serverId)
+        var updated = serverDao.getById(serverId)
         assertEquals(LatencyStatus.Ok, updated?.latencyStatus)
         assertEquals(45L, updated?.latencyMs)
 
         latencyProbe.result = LatencyResult.Timeout
-        repository.testLatency(server.id)
-        updated = serverDao.getById(server.id)
+        latencyTracker.testLatency(serverId)
+        updated = serverDao.getById(serverId)
         assertEquals(LatencyStatus.Timeout, updated?.latencyStatus)
         assertNull(updated?.latencyMs)
 
         latencyProbe.result = LatencyResult.Error("Failed")
-        repository.testLatency(server.id)
-        updated = serverDao.getById(server.id)
+        latencyTracker.testLatency(serverId)
+        updated = serverDao.getById(serverId)
         assertEquals(LatencyStatus.Error, updated?.latencyStatus)
         assertNull(updated?.latencyMs)
     }

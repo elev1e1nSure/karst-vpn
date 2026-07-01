@@ -12,9 +12,12 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import karst.vpn.data.ImportCoordinator
 import karst.vpn.data.KarstDatabase
+import karst.vpn.data.LatencyTracker
 import karst.vpn.data.ServerRepository
 import karst.vpn.data.SettingsRepository
+import karst.vpn.data.SubscriptionRefresher
 import karst.vpn.net.LatencyProbe
 import karst.vpn.net.LatencyResult
 import karst.vpn.net.SubscriptionFetcher
@@ -36,6 +39,9 @@ class VpnUiTest {
     private lateinit var fetcher: FakeSubscriptionFetcher
     private lateinit var latencyProbe: FakeLatencyProbe
     private lateinit var serverRepository: ServerRepository
+    private lateinit var importCoordinator: ImportCoordinator
+    private lateinit var subscriptionRefresher: SubscriptionRefresher
+    private lateinit var latencyTracker: LatencyTracker
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var viewModel: VpnViewModel
 
@@ -49,12 +55,21 @@ class VpnUiTest {
         fetcher = FakeSubscriptionFetcher()
         latencyProbe = FakeLatencyProbe()
 
-        serverRepository = ServerRepository(db, fetcher, latencyProbe)
+        serverRepository = ServerRepository(db)
+        importCoordinator = ImportCoordinator(db, fetcher)
+        subscriptionRefresher = SubscriptionRefresher(db, fetcher)
+        latencyTracker = LatencyTracker(db, latencyProbe)
 
         val dataStore = FakeDataStore()
         settingsRepository = SettingsRepository(dataStore)
 
-        viewModel = VpnViewModel(serverRepository, settingsRepository)
+        viewModel = VpnViewModel(
+            serverRepository,
+            settingsRepository,
+            importCoordinator,
+            subscriptionRefresher,
+            latencyTracker,
+        )
     }
 
     @After

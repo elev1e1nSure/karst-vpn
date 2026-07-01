@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import karst.vpn.KarstApplication
 import karst.vpn.core.ConnectionPhase
 import karst.vpn.core.ConnectionStateHolder
+import karst.vpn.data.ImportCoordinator
 import karst.vpn.data.LatencyStatus
+import karst.vpn.data.LatencyTracker
 import karst.vpn.data.ServerRepository
 import karst.vpn.data.SettingsRepository
+import karst.vpn.data.SubscriptionRefresher
 import karst.vpn.data.dao.ServerWithSubscription
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,6 +56,9 @@ private data class AddServerState(
 class VpnViewModel(
     private val serverRepository: ServerRepository,
     private val settingsRepository: SettingsRepository,
+    private val importCoordinator: ImportCoordinator,
+    private val subscriptionRefresher: SubscriptionRefresher,
+    private val latencyTracker: LatencyTracker,
 ) : ViewModel() {
     private val addServerState = MutableStateFlow(AddServerState())
     private val importMessage = MutableStateFlow<String?>(null)
@@ -64,7 +70,7 @@ class VpnViewModel(
                     .filter { it.server.latencyStatus == "UNTESTED" }
                     .forEach {
                         withContext(Dispatchers.IO) {
-                            serverRepository.testLatency(it.server.id)
+                            latencyTracker.testLatency(it.server.id)
                         }
                     }
             }
@@ -152,30 +158,14 @@ class VpnViewModel(
             importMessage.value = null
 
             val result = withContext(Dispatchers.IO) {
-                when {
-                    text.startsWith("vless://", ignoreCase = true) -> {
-                        serverRepository.addManualServer(text).map { server ->
-                            settingsRepository.setSelectedServerId(server.id)
-                            "Сервер добавлен"
-                        }
-                    }
-                    text.startsWith("https://", ignoreCase = true) -> {
-                        serverRepository.addSubscription(text).map { summary ->
-                            summary.firstServerId?.let { settingsRepository.setSelectedServerId(it) }
-                            summary.message
-                        }
-                    }
-                    text.startsWith("http://", ignoreCase = true) -> {
-                        Result.failure(IllegalArgumentException("Подписка должна использовать HTTPS"))
-                    }
-                    else -> Result.failure(IllegalArgumentException("Не похоже на VLESS-ссылку или HTTPS URL подписки"))
-                }
+                importCoordinator.importInput(text)
             }
 
             result
-                .onSuccess {
+                .onSuccess { imported ->
+                    imported.firstServerId?.let { settingsRepository.setSelectedServerId(it) }
                     addServerState.value = AddServerState()
-                    importMessage.value = it
+                    importMessage.value = imported.message
                 }
                 .onFailure {
                     addServerState.value = AddServerState(error = it.message ?: "Не удалось добавить")
@@ -198,7 +188,7 @@ class VpnViewModel(
         viewModelScope.launch {
             importMessage.value = null
             val result = withContext(Dispatchers.IO) {
-                serverRepository.refreshSubscription(id)
+                subscriptionRefresher.refresh(id)
             }
             result
                 .onSuccess {
@@ -218,6 +208,9 @@ class VpnViewModel(
             VpnViewModel(
                 application.container.serverRepository,
                 application.container.settingsRepository,
+                application.container.importCoordinator,
+                application.container.subscriptionRefresher,
+                application.container.latencyTracker,
             ) as T
     }
 }
