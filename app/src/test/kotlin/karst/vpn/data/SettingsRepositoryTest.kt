@@ -31,7 +31,6 @@ class SettingsRepositoryTest {
 
         assertNull(repository.selectedServerId.first())
         assertTrue(repository.darkMode.first())
-        assertTrue(repository.notificationsEnabled.first())
         assertEquals(SettingsRepository.DEFAULT_DNS_DOH_URL, repository.dnsDohUrl.first())
 
         repository.setSelectedServerId("server-uuid-1")
@@ -42,8 +41,5 @@ class SettingsRepositoryTest {
 
         repository.setDarkMode(false)
         assertEquals(false, repository.darkMode.first())
-
-        repository.setNotificationsEnabled(false)
-        assertEquals(false, repository.notificationsEnabled.first())
     }
 }

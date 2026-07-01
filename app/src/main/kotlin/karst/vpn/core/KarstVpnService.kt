@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.ServiceInfo
+import android.graphics.BitmapFactory
 import android.net.VpnService
 import android.os.Build
 import android.os.IBinder
@@ -52,7 +53,7 @@ class KarstVpnService : VpnService(), CommandServerHandler {
                 scope.launch { stopTunnel() }
             }
             ACTION_CONNECT -> {
-                startForegroundCompat(buildNotification("Подключаемся", null))
+                startForegroundCompat(buildConnectingNotification())
                 val serverId = intent.getStringExtra(EXTRA_SERVER_ID)
                 if (serverId == null) {
                     ConnectionStateHolder.off("Сервер не выбран")
@@ -98,13 +99,17 @@ class KarstVpnService : VpnService(), CommandServerHandler {
                 nextServer.start()
                 nextServer.startOrReloadService(config, OverrideOptions())
                 commandServer = nextServer
+                server.displayName
             }
-        }.onSuccess {
+        }.onSuccess { serverName ->
             val connectedAt = System.currentTimeMillis()
             SocketProtectorRegistry.current = SocketProtector { socket -> protect(socket) }
             ConnectionStateHolder.connected(connectedAt)
             Haptics.heavy(this)
-            NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification("Подключено", connectedAt))
+            NotificationManagerCompat.from(this).notify(
+                NOTIFICATION_ID,
+                buildConnectedNotification(serverName, connectedAt),
+            )
             AppLogBuffer.append("VPN connected")
         }.onFailure {
             AppLogBuffer.append("VPN start failed: ${it.message}")
@@ -149,7 +154,28 @@ class KarstVpnService : VpnService(), CommandServerHandler {
 
     override fun setSystemProxyEnabled(enabled: Boolean) = Unit
 
-    private fun buildNotification(status: String, connectedSinceMillis: Long?): android.app.Notification {
+    private fun buildConnectingNotification(): android.app.Notification =
+        buildNotification(
+            title = "Karst VPN запускается",
+            text = "Готовим защищённый туннель",
+            bigText = "Готовим защищённый туннель. Это обычно занимает несколько секунд.",
+            connectedSinceMillis = null,
+        )
+
+    private fun buildConnectedNotification(serverName: String, connectedSinceMillis: Long): android.app.Notification =
+        buildNotification(
+            title = "Karst VPN включён",
+            text = "Подключено к $serverName",
+            bigText = "Защищённое соединение активно. Нажми «Отключить», чтобы остановить VPN.",
+            connectedSinceMillis = connectedSinceMillis,
+        )
+
+    private fun buildNotification(
+        title: String,
+        text: String,
+        bigText: String,
+        connectedSinceMillis: Long?,
+    ): android.app.Notification {
         val openIntent = PendingIntent.getActivity(
             this,
             0,
@@ -165,11 +191,18 @@ class KarstVpnService : VpnService(), CommandServerHandler {
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_power)
-            .setContentTitle("Karst VPN")
-            .setContentText(status)
+            .setLargeIcon(BitmapFactory.decodeResource(resources, R.drawable.ic_logo))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setContentIntent(openIntent)
             .setOngoing(true)
+            .setSilent(true)
             .setOnlyAlertOnce(true)
+            .setShowWhen(connectedSinceMillis != null)
+            .setColor(0xFF6F8F7A.toInt())
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .addAction(R.drawable.ic_power, "Отключить", disconnectIntent)
 
@@ -203,9 +236,15 @@ class KarstVpnService : VpnService(), CommandServerHandler {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "VPN status",
+            "Karst VPN",
             NotificationManager.IMPORTANCE_LOW,
-        )
+        ).apply {
+            description = "Статус активного VPN-подключения"
+            setShowBadge(false)
+            enableLights(false)
+            enableVibration(false)
+            lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+        }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 

@@ -19,7 +19,6 @@ class SettingsRepository(
 
     val selectedServerId: Flow<String?> = dataStore.data.map { it[SELECTED_SERVER_ID] }
     val darkMode: Flow<Boolean> = dataStore.data.map { it[DARK_MODE] ?: true }
-    val notificationsEnabled: Flow<Boolean> = dataStore.data.map { it[NOTIFICATIONS_ENABLED] ?: true }
     val dnsDohUrl: Flow<String> = dataStore.data.map { it[DNS_DOH_URL] ?: DEFAULT_DNS_DOH_URL }
 
     suspend fun setSelectedServerId(id: String?) {
@@ -36,16 +35,11 @@ class SettingsRepository(
         dataStore.edit { it[DARK_MODE] = enabled }
     }
 
-    suspend fun setNotificationsEnabled(enabled: Boolean) {
-        dataStore.edit { it[NOTIFICATIONS_ENABLED] = enabled }
-    }
-
     companion object {
         const val DEFAULT_DNS_DOH_URL = "https://1.1.1.1/dns-query"
 
         private val SELECTED_SERVER_ID = stringPreferencesKey("selected_server_id")
         private val DARK_MODE = booleanPreferencesKey("dark_mode")
-        private val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         private val DNS_DOH_URL = stringPreferencesKey("dns_doh_url")
     }
 }

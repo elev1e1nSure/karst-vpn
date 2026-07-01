@@ -265,7 +265,21 @@ private class FakeServerDao(private val db: FakeDatabaseState) : ServerDao {
         return db.serversFlow.map { list ->
             list.map { server ->
                 val sub = server.subscriptionId?.let { db.subscriptions[it] }
-                ServerWithSubscription(server, sub?.displayName, sub?.announce)
+                ServerWithSubscription(
+                    server = server,
+                    subscriptionName = sub?.displayName,
+                    subscriptionAnnounce = sub?.announce,
+                    subscriptionUrl = sub?.url,
+                    subscriptionProfileUpdateIntervalHours = sub?.profileUpdateIntervalHours,
+                    subscriptionProfileWebPageUrl = sub?.profileWebPageUrl,
+                    subscriptionRoutingEnabled = sub?.routingEnabled,
+                    subscriptionUploadBytes = sub?.uploadBytes,
+                    subscriptionDownloadBytes = sub?.downloadBytes,
+                    subscriptionTotalBytes = sub?.totalBytes,
+                    subscriptionExpireAtEpochSeconds = sub?.expireAtEpochSeconds,
+                    subscriptionLastRefreshedAtEpochMs = sub?.lastRefreshedAtEpochMs,
+                    subscriptionLastRefreshError = sub?.lastRefreshError,
+                )
             }.sortedWith(compareBy({ it.server.sortOrder }, { it.server.addedAtEpochMs }))
         }
     }
@@ -300,9 +314,9 @@ private class FakeSubscriptionDao(private val db: FakeDatabaseState) : Subscript
         db.subscriptions[subscription.id] = subscription
         db.subscriptionsFlow.value = db.subscriptions.values.toList()
     }
-    override suspend fun delete(subscription: SubscriptionEntity) {
-        db.subscriptions.remove(subscription.id)
-        db.servers.values.removeIf { it.subscriptionId == subscription.id }
+    override suspend fun deleteById(id: String) {
+        db.subscriptions.remove(id)
+        db.servers.values.removeIf { it.subscriptionId == id }
         db.serversFlow.value = db.servers.values.toList()
         db.subscriptionsFlow.value = db.subscriptions.values.toList()
     }

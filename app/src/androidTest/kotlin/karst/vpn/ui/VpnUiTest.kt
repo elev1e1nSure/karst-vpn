@@ -116,7 +116,6 @@ class VpnUiTest {
 
         composeTestRule.onNodeWithTag("logs_action_row").assertIsDisplayed()
         composeTestRule.onNodeWithTag("dark_mode_toggle").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("notifications_toggle").assertIsDisplayed()
 
         composeTestRule.onNodeWithTag("dark_mode_toggle").performClick()
     }

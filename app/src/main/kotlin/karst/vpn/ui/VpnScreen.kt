@@ -304,8 +304,6 @@ private fun MainVpnScreen(
                     accent = accent,
                     darkModeOn = state.darkModeOn,
                     onToggleDarkMode = { viewModel.setDarkMode(!state.darkModeOn) },
-                    notifications = state.notificationsEnabled,
-                    onToggleNotifications = { viewModel.setNotifications(!state.notificationsEnabled) },
                     onOpenLogs = {
                         settingsVisible = false
                         onOpenLogs()
@@ -1184,8 +1182,6 @@ private fun SettingsSheetContent(
     accent: Color,
     darkModeOn: Boolean,
     onToggleDarkMode: () -> Unit,
-    notifications: Boolean,
-    onToggleNotifications: () -> Unit,
     onOpenLogs: () -> Unit,
 ) {
     Text(
@@ -1199,7 +1195,6 @@ private fun SettingsSheetContent(
 
     SettingsActionRow(theme, "Логи", "Открыть журнал sing-box", onOpenLogs, Modifier.testTag("logs_action_row"))
     ToggleRow(theme, accent, "Тёмная тема", "Спокойнее для глаз вечером", darkModeOn, onToggleDarkMode, Modifier.testTag("dark_mode_toggle"))
-    ToggleRow(theme, accent, "Уведомления", "О статусе подключения", notifications, onToggleNotifications, Modifier.testTag("notifications_toggle"))
 }
 
 @Composable

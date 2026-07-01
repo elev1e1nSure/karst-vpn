@@ -24,7 +24,6 @@ import kotlinx.coroutines.withContext
 
 data class VpnUiState(
     val darkModeOn: Boolean = true,
-    val notificationsEnabled: Boolean = true,
     val phase: ConnectionPhase = ConnectionPhase.Off,
     val connectedSinceMillis: Long? = null,
     val lastError: String? = null,
@@ -41,7 +40,6 @@ data class VpnUiState(
 private data class SettingsState(
     val selectedServerId: String?,
     val darkModeOn: Boolean,
-    val notificationsEnabled: Boolean,
 )
 
 private data class ConnectionState(
@@ -88,9 +86,8 @@ class VpnViewModel(
     private val settingsState = combine(
         settingsRepository.selectedServerId,
         settingsRepository.darkMode,
-        settingsRepository.notificationsEnabled,
-    ) { selectedServerId, darkModeOn, notificationsEnabled ->
-        SettingsState(selectedServerId, darkModeOn, notificationsEnabled)
+    ) { selectedServerId, darkModeOn ->
+        SettingsState(selectedServerId, darkModeOn)
     }
 
     private val connectionState = combine(
@@ -138,7 +135,6 @@ class VpnViewModel(
         }
         VpnUiState(
             darkModeOn = settings.darkModeOn,
-            notificationsEnabled = settings.notificationsEnabled,
             phase = connection.phase,
             connectedSinceMillis = connection.connectedSinceMillis,
             lastError = connection.lastError,
@@ -162,12 +158,6 @@ class VpnViewModel(
     fun setDarkMode(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setDarkMode(enabled)
-        }
-    }
-
-    fun setNotifications(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setNotificationsEnabled(enabled)
         }
     }
 
