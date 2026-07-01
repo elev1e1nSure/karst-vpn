@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -65,7 +66,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
@@ -659,31 +660,24 @@ private fun SubscriptionGroupHeader(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier
                         .background(accent.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(7.dp),
                 ) {
                     if (isRefreshing) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(10.dp),
+                            modifier = Modifier.size(16.dp),
                             color = accent,
-                            strokeWidth = 1.5.dp,
+                            strokeWidth = 2.dp,
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Filled.Refresh,
                             contentDescription = "Обновить подписку",
                             tint = accent,
-                            modifier = Modifier.size(10.dp),
+                            modifier = Modifier.size(16.dp),
                         )
                     }
-                    Text(
-                        text = "Актуализировать",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = accent,
-                    )
                 }
             }
         }
@@ -732,6 +726,7 @@ private fun ServerRow(
 }
 
 @Composable
+@Suppress("DEPRECATION")
 private fun AddServerForm(
     theme: VpnColors,
     accent: Color,
@@ -742,10 +737,7 @@ private fun AddServerForm(
     onCancel: () -> Unit,
     onSubmit: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val clipboardManager = remember(context) {
-        context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-    }
+    val clipboardManager = LocalClipboardManager.current
 
     Column(
         modifier = Modifier
@@ -764,27 +756,22 @@ private fun AddServerForm(
             enabled = !loading,
             textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = theme.ink),
             trailingIcon = {
-                Pressable(
+                IconButton(
                     onClick = {
-                        clipboardManager.primaryClip
-                            ?.takeIf { it.itemCount > 0 }
-                            ?.getItemAt(0)
-                            ?.coerceToText(context)
-                            ?.toString()
+                        clipboardManager.getText()
+                            ?.text
                             ?.takeIf { it.isNotBlank() }
                             ?.let(onChangeValue)
                     },
                     enabled = !loading,
                     modifier = Modifier.testTag("paste_clipboard_btn"),
                 ) {
-                    Box(modifier = Modifier.size(36.dp), contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Filled.ContentPaste,
-                            contentDescription = "Вставить из буфера",
-                            tint = theme.mutedInk,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.ContentPaste,
+                        contentDescription = "Вставить из буфера",
+                        tint = theme.mutedInk,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
             },
             colors = OutlinedTextFieldDefaults.colors(
