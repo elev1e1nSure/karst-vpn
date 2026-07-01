@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -239,12 +240,14 @@ private fun MainVpnScreen(
                     addServerError = state.addServerError,
                     addServerLoading = state.addServerLoading,
                     importMessage = state.importMessage,
+                    refreshAllVersion = state.refreshAllVersion,
+                    refreshAllLoading = state.refreshAllLoading,
                     onSelect = { id ->
                         viewModel.selectServer(id)
                         menuVisible = false
                     },
                     onRemove = viewModel::deleteServer,
-                    onRefreshSubscription = viewModel::refreshSubscription,
+                    onRefreshAll = viewModel::refreshAllSubscriptions,
                     onOpenAddServer = {
                         addServerOpen = true
                         viewModel.clearAddError()
@@ -508,9 +511,11 @@ private fun ServerSheetContent(
     addServerError: String?,
     addServerLoading: Boolean,
     importMessage: String?,
+    refreshAllVersion: Int,
+    refreshAllLoading: Boolean,
     onSelect: (String) -> Unit,
     onRemove: (String) -> Unit,
-    onRefreshSubscription: (String) -> Unit,
+    onRefreshAll: () -> Unit,
     onOpenAddServer: () -> Unit,
     onCancelAddServer: () -> Unit,
     onChangeAddServerValue: (String) -> Unit,
@@ -548,8 +553,27 @@ private fun ServerSheetContent(
                 }
             }
         }
+        val listState = rememberLazyListState()
+        LaunchedEffect(refreshAllVersion) {
+            if (refreshAllVersion > 0 && listState.layoutInfo.totalItemsCount > 0) {
+                listState.animateScrollToItem(0)
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            RefreshAllButton(
+                loading = refreshAllLoading,
+                accent = accent,
+                onClick = onRefreshAll,
+            )
+        }
         LazyColumn(
             modifier = Modifier.heightIn(max = 360.dp).nestedScroll(listNestedScrollConnection),
+            state = listState,
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             groups.forEach { group ->
@@ -567,7 +591,7 @@ private fun ServerSheetContent(
                             announce = group.announce,
                             theme = theme,
                             accent = accent,
-                            onRefresh = if (group.id != null) { { onRefreshSubscription(group.id) } } else null
+                            onRefresh = null,
                         )
                         group.servers.forEach { server ->
                             ServerRow(
@@ -703,6 +727,51 @@ private fun SubscriptionGroupHeader(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RefreshAllButton(
+    loading: Boolean,
+    accent: Color,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    Pressable(
+        onClick = {
+            Haptics.medium(context)
+            onClick()
+        },
+        pressedScale = 0.85f,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .background(accent.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = accent,
+                    strokeWidth = 2.5.dp,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = "Обновить все подписки",
+                    tint = accent,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                "Обновить",
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                color = accent,
+            )
         }
     }
 }

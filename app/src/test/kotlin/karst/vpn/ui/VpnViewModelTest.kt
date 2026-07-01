@@ -273,6 +273,9 @@ private class FakeSubscriptionDao(private val db: FakeDatabaseState) : Subscript
         }
     }
     override suspend fun getById(id: String): SubscriptionEntity? = db.subscriptions[id]
+    override suspend fun getByUrl(url: String): SubscriptionEntity? =
+        db.subscriptions.values.firstOrNull { it.url == url }
+    override suspend fun getAllIds(): List<String> = db.subscriptions.values.map { it.id }
     override suspend fun updateRefreshResult(id: String, refreshedAt: Long?, error: String?) {
         db.subscriptions[id] = db.subscriptions[id]?.copy(
             lastRefreshedAtEpochMs = refreshedAt,

@@ -34,6 +34,8 @@ data class VpnUiState(
     val addServerLoading: Boolean = false,
     val addServerError: String? = null,
     val importMessage: String? = null,
+    val refreshAllVersion: Int = 0,
+    val refreshAllLoading: Boolean = false,
 )
 
 private data class SettingsState(
@@ -53,6 +55,11 @@ private data class AddServerState(
     val error: String? = null,
 )
 
+private data class RefreshAllState(
+    val loading: Boolean = false,
+    val version: Int = 0,
+)
+
 class VpnViewModel(
     private val serverRepository: ServerRepository,
     private val settingsRepository: SettingsRepository,
@@ -62,6 +69,7 @@ class VpnViewModel(
 ) : ViewModel() {
     private val addServerState = MutableStateFlow(AddServerState())
     private val importMessage = MutableStateFlow<String?>(null)
+    private val refreshAllState = MutableStateFlow(RefreshAllState())
 
     init {
         viewModelScope.launch {
@@ -93,13 +101,20 @@ class VpnViewModel(
         ConnectionState(phase, lastError, connectedSinceMillis)
     }
 
+    private val addFormState = combine(
+        addServerState,
+        importMessage,
+        refreshAllState,
+    ) { addState, message, refreshAll ->
+        Triple(addState, message, refreshAll)
+    }
+
     val uiState: StateFlow<VpnUiState> = combine(
         serverRepository.observeServers(),
         settingsState,
         connectionState,
-        addServerState,
-        importMessage,
-    ) { serverRows, settings, connection, addState, message ->
+        addFormState,
+    ) { serverRows, settings, connection, (addState, message, refreshAll) ->
         val servers = serverRows.map { it.toUiServer() }
         val groups = serverRows.groupBy { it.server.subscriptionId }.map { (subId, subRows) ->
             val name = if (subId == null) "Вручную" else subRows.firstOrNull()?.subscriptionName ?: "Подписка"
@@ -122,6 +137,8 @@ class VpnViewModel(
             addServerLoading = addState.loading,
             addServerError = addState.error,
             importMessage = message,
+            refreshAllVersion = refreshAll.version,
+            refreshAllLoading = refreshAll.loading,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VpnUiState())
 
@@ -201,6 +218,25 @@ class VpnViewModel(
                 }
                 .onFailure {
                     importMessage.value = it.message ?: "Не удалось обновить подписку"
+                }
+        }
+    }
+
+    fun refreshAllSubscriptions() {
+        viewModelScope.launch {
+            refreshAllState.value = RefreshAllState(loading = true, version = refreshAllState.value.version)
+            importMessage.value = null
+            val result = withContext(Dispatchers.IO) {
+                subscriptionRefresher.refreshAll()
+            }
+            result
+                .onSuccess {
+                    importMessage.value = it.message
+                    refreshAllState.value = refreshAllState.value.copy(loading = false, version = refreshAllState.value.version + 1)
+                }
+                .onFailure {
+                    importMessage.value = it.message ?: "Не удалось обновить подписки"
+                    refreshAllState.value = refreshAllState.value.copy(loading = false, version = refreshAllState.value.version + 1)
                 }
         }
     }

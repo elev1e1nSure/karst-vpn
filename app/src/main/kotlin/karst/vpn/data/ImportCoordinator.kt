@@ -45,6 +45,14 @@ class ImportCoordinator(
     }
 
     private suspend fun importSubscription(url: String): ImportSummary {
+        val existing = subscriptions.getByUrl(url)
+        if (existing != null) {
+            return refreshExistingSubscription(existing)
+        }
+        return importNewSubscription(url)
+    }
+
+    private suspend fun importNewSubscription(url: String): ImportSummary {
         val fetchResult = fetcher.fetch(url).getOrThrow()
         val parsed = SubscriptionParser.parse(fetchResult.body)
         val now = System.currentTimeMillis()
@@ -82,6 +90,44 @@ class ImportCoordinator(
         }
 
         return parsed.toImportSummary(serverEntities.firstOrNull()?.id)
+    }
+
+    private suspend fun refreshExistingSubscription(subscription: SubscriptionEntity): ImportSummary {
+        val fetchResult = fetcher.fetch(subscription.url).getOrThrow()
+        val parsed = SubscriptionParser.parse(fetchResult.body)
+        val now = System.currentTimeMillis()
+        val startOrder = servers.maxSortOrder() + 1
+        val serverEntities = parsed.links.mapIndexed { index, link ->
+            link.toServerEntity(
+                id = UUID.randomUUID().toString(),
+                subscriptionId = subscription.id,
+                sortOrder = startOrder + index,
+                now = now,
+            )
+        }
+
+        database.withTransaction {
+            servers.deleteBySubscriptionId(subscription.id)
+            servers.upsertAll(serverEntities)
+            subscriptions.update(
+                subscription.copy(
+                    displayName = fetchResult.metadata.profileTitle ?: subscription.displayName,
+                    announce = fetchResult.metadata.announce,
+                    profileUpdateIntervalHours = fetchResult.metadata.profileUpdateIntervalHours,
+                    profileWebPageUrl = fetchResult.metadata.profileWebPageUrl,
+                    routingEnabled = fetchResult.metadata.routingEnabled,
+                    uploadBytes = fetchResult.metadata.uploadBytes,
+                    downloadBytes = fetchResult.metadata.downloadBytes,
+                    totalBytes = fetchResult.metadata.totalBytes,
+                    expireAtEpochSeconds = fetchResult.metadata.expireAtEpochSeconds,
+                    lastRefreshedAtEpochMs = now,
+                    lastRefreshError = null,
+                ),
+            )
+        }
+
+        val summary = parsed.toImportSummary(serverEntities.firstOrNull()?.id)
+        return summary.copy(message = "Подписка уже была добавлена, обновлено")
     }
 }
 

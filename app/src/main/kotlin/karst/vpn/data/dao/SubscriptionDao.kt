@@ -26,6 +26,12 @@ interface SubscriptionDao {
     @Query("SELECT * FROM subscriptions WHERE id = :id")
     suspend fun getById(id: String): SubscriptionEntity?
 
+    @Query("SELECT * FROM subscriptions WHERE url = :url")
+    suspend fun getByUrl(url: String): SubscriptionEntity?
+
+    @Query("SELECT id FROM subscriptions")
+    suspend fun getAllIds(): List<String>
+
     @Query(
         """
         UPDATE subscriptions

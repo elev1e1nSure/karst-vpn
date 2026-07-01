@@ -14,6 +14,20 @@ class SubscriptionRefresher(
     private val servers = database.servers()
     private val subscriptions = database.subscriptions()
 
+    suspend fun refreshAll(): Result<ImportSummary> = runCatching {
+        val ids = subscriptions.getAllIds()
+        if (ids.isEmpty()) return@runCatching ImportSummary(imported = 0, skipped = 0, firstServerId = null, message = "")
+        var totalImported = 0
+        var lastFirstServerId: String? = null
+        ids.forEach { id ->
+            refresh(id).onSuccess { summary ->
+                totalImported += summary.imported
+                if (summary.firstServerId != null) lastFirstServerId = summary.firstServerId
+            }
+        }
+        ImportSummary(imported = totalImported, skipped = 0, firstServerId = lastFirstServerId, message = "Подписки обновлены")
+    }
+
     suspend fun refresh(id: String): Result<ImportSummary> = runCatching {
         try {
             val subscription = subscriptions.getById(id) ?: error("Подписка не найдена")
