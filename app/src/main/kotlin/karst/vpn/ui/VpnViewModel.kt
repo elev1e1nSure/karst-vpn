@@ -58,11 +58,15 @@ class VpnViewModel(
     private val importMessage = MutableStateFlow<String?>(null)
 
     init {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             serverRepository.observeServers().collect { servers ->
                 servers
                     .filter { it.server.latencyStatus == "UNTESTED" }
-                    .forEach { serverRepository.testLatency(it.server.id) }
+                    .forEach {
+                        withContext(Dispatchers.IO) {
+                            serverRepository.testLatency(it.server.id)
+                        }
+                    }
             }
         }
     }
@@ -178,8 +182,10 @@ class VpnViewModel(
     }
 
     fun deleteServer(id: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            serverRepository.deleteServer(id)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                serverRepository.deleteServer(id)
+            }
             if (uiState.value.selectedServerId == id) {
                 settingsRepository.setSelectedServerId(null)
             }
