@@ -220,8 +220,8 @@ class KarstVpnService : VpnService(), CommandServerHandler {
     private fun buildConnectingNotification(): android.app.Notification =
         buildNotification(
             title = "Karst VPN запускается",
-            text = "Готовим защищённый туннель",
-            bigText = "Готовим защищённый туннель. Это обычно занимает несколько секунд.",
+            text = "Устанавливаем туннель",
+            bigText = "Устанавливаем туннель. Это обычно занимает несколько секунд.",
             connectedSinceMillis = null,
         )
 
@@ -229,7 +229,7 @@ class KarstVpnService : VpnService(), CommandServerHandler {
         buildNotification(
             title = "Karst VPN включён",
             text = "Подключено к $serverName",
-            bigText = "Защищённое соединение активно. Нажми «Отключить», чтобы остановить VPN.",
+            bigText = "Соединение активно. Нажми «Отключить», чтобы остановить VPN.",
             connectedSinceMillis = connectedSinceMillis,
         )
 
