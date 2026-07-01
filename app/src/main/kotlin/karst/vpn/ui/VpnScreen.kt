@@ -77,11 +77,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -124,7 +127,7 @@ private enum class Route {
     Logs,
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun VpnScreen(
     viewModel: VpnViewModel,
@@ -158,29 +161,33 @@ fun VpnScreen(
     }
 
     MaterialTheme(colorScheme = colorScheme) {
-        AnimatedContent(
-            targetState = route,
-            transitionSpec = {
-                val forward = targetState == Route.Logs
-                (slideInHorizontally(tween(220)) { width -> if (forward) width / 3 else -width / 3 } + fadeIn(tween(220)))
-                    .togetherWith(slideOutHorizontally(tween(220)) { width -> if (forward) -width / 3 else width / 3 } + fadeOut(tween(160)))
-            },
-            label = "routeTransition",
-        ) { currentRoute ->
-            if (currentRoute == Route.Logs) {
-                LogsScreen(theme = theme, onBack = { route = Route.Main })
-            } else {
-                MainVpnScreen(
-                    state = state,
-                    viewModel = viewModel,
-                    modifier = modifier,
-                    theme = theme,
-                    accent = accent,
-                    mood = mood,
-                    onOpenLogs = { route = Route.Logs },
-                    onConnectRequest = onConnectRequest,
-                    onDisconnectRequest = onDisconnectRequest,
-                )
+        CompositionLocalProvider(
+            LocalOverscrollFactory provides null
+        ) {
+            AnimatedContent(
+                targetState = route,
+                transitionSpec = {
+                    val forward = targetState == Route.Logs
+                    (slideInHorizontally(tween(220)) { width -> if (forward) width / 3 else -width / 3 } + fadeIn(tween(220)))
+                        .togetherWith(slideOutHorizontally(tween(220)) { width -> if (forward) -width / 3 else width / 3 } + fadeOut(tween(160)))
+                },
+                label = "routeTransition",
+            ) { currentRoute ->
+                if (currentRoute == Route.Logs) {
+                    LogsScreen(theme = theme, onBack = { route = Route.Main })
+                } else {
+                    MainVpnScreen(
+                        state = state,
+                        viewModel = viewModel,
+                        modifier = modifier,
+                        theme = theme,
+                        accent = accent,
+                        mood = mood,
+                        onOpenLogs = { route = Route.Logs },
+                        onConnectRequest = onConnectRequest,
+                        onDisconnectRequest = onDisconnectRequest,
+                    )
+                }
             }
         }
     }
@@ -335,6 +342,14 @@ private fun MainVpnScreen(
     }
 
     if (settingsVisible) {
+        val settingsNestedScrollConnection = remember {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset = Offset.Zero
+                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset = available
+                override suspend fun onPreFling(available: Velocity): Velocity = Velocity.Zero
+                override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
+            }
+        }
         ModalBottomSheet(
             onDismissRequest = { settingsVisible = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -345,6 +360,7 @@ private fun MainVpnScreen(
             Column(
                 modifier = Modifier
                     .padding(horizontal = 22.dp)
+                    .nestedScroll(settingsNestedScrollConnection)
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = 28.dp),
             ) {
@@ -672,13 +688,10 @@ private fun ServerSheetContent(
                     // dispatch order, which isn't reliable to tune without on-device testing.
                     val listNestedScrollConnection = remember {
                         object : NestedScrollConnection {
-                            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                                return available
-                            }
-
-                            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                                return available
-                            }
+                            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset = Offset.Zero
+                            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset = available
+                            override suspend fun onPreFling(available: Velocity): Velocity = Velocity.Zero
+                            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity = available
                         }
                     }
                     val listState = rememberLazyListState()
