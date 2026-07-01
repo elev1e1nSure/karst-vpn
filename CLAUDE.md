@@ -1,0 +1,60 @@
+# CLAUDE.md
+
+Инструкции для AI-агента в этом репозитории. Файл должен оставаться коротким и конкретным: сюда попадают только правила, которые полезны в каждой сессии.
+
+## Рабочий стиль
+
+- Общайся по-русски, прямо и без формальностей.
+- Если задача неоднозначна, сначала задай один короткий уточняющий вопрос.
+- Перед крупным рефакторингом или архитектурным изменением напиши план и дождись подтверждения.
+- Делай хирургические изменения. Не переписывай файл целиком, если достаточно точечной правки.
+- Не добавляй тесты без явной просьбы пользователя.
+- Если заметил проблему вне текущей задачи, сообщи отдельно и не расширяй scope сам.
+
+## Проект
+
+Karst VPN — Android-приложение на Kotlin и Jetpack Compose. Оно импортирует VLESS-ссылки и подписки, хранит серверы локально, строит sing-box config и поднимает VPN через Android `VpnService`.
+
+Основные зоны:
+
+- `app/src/main/kotlin/karst/vpn/core/` — VPN service, sing-box config, platform bridge.
+- `app/src/main/kotlin/karst/vpn/data/` — Room, DataStore, repositories, DAO.
+- `app/src/main/kotlin/karst/vpn/link/` — VLESS parser, subscription parser, outbound builder.
+- `app/src/main/kotlin/karst/vpn/net/` — subscription fetch, latency probe.
+- `app/src/main/kotlin/karst/vpn/ui/` — Compose UI, theme, view model.
+- `scripts/build_libbox.ps1` — сборка `app/libs/libbox.aar` из sing-box.
+
+## Команды
+
+Используй Windows PowerShell.
+
+```powershell
+.\gradlew.bat assembleDebug
+.\gradlew.bat test
+.\gradlew.bat assembleRelease
+.\scripts\build_libbox.ps1
+```
+
+Release signing настраивается через `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
+
+## Код
+
+- Следуй текущему Kotlin/Compose стилю проекта.
+- Комментарии только на английском и только для неочевидных решений или ограничений.
+- Не добавляй секреты, реальные VPN-ссылки, подписки, токены или приватные endpoint-ы в репозиторий.
+- Не трогай `app/libs/libbox.aar`, если задача не связана со сборкой или обновлением sing-box.
+- Для structured data используй существующие модели, serializers и repositories, а не ручной string parsing.
+- Для UI сохраняй текущий спокойный, минималистичный стиль. Не добавляй декоративные элементы без задачи.
+
+## Проверка
+
+- Для изменений в `link/` запускай `.\gradlew.bat test`.
+- Для изменений в Compose UI достаточно сборки `.\gradlew.bat assembleDebug`, если пользователь не попросил визуальную проверку.
+- Для изменений в `core/` или VPN routing сборка не доказывает корректность. Отдельно укажи, что нужна проверка на Android-устройстве или эмуляторе.
+
+## Git
+
+- Один логически завершенный пользовательский запрос — один commit.
+- Формат commit message: `type(scope): description`.
+- Разрешенные type: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `perf`, `test`, `ci`, `build`.
+- Не откатывай чужие изменения без явной просьбы.
