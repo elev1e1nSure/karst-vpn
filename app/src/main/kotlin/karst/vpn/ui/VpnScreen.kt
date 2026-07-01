@@ -1436,7 +1436,7 @@ private fun RoutingModeSection(
     SettingsChoiceRow(theme, accent, "Обход локалки", "Локальные сети и private IP идут напрямую", selectedMode == RoutingMode.BypassLocal) {
         onSelect(RoutingMode.BypassLocal)
     }
-    SettingsChoiceRow(theme, accent, "Обход RU", "RU-домены и локальные сети идут напрямую", selectedMode == RoutingMode.BypassRu) {
+    SettingsChoiceRow(theme, accent, "Обход RU и локалки", "RU-домены и локальные сети идут напрямую", selectedMode == RoutingMode.BypassRu) {
         onSelect(RoutingMode.BypassRu)
     }
 }
