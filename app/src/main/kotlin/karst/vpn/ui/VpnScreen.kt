@@ -5,6 +5,7 @@ import karst.vpn.core.ConnectionPhase
 import karst.vpn.core.Haptics
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -650,8 +651,15 @@ private fun ServerSheetContent(
         targetState = subscriptionMenu != null,
         transitionSpec = {
             val forward = targetState
+            // The list pane (fixed-height LazyColumn) and the menu pane (content-height
+            // scroll column) differ a lot in height, and this sits inside a ModalBottomSheet
+            // that recalculates its drag anchors on every content size change. The default
+            // sizeTransform is a spring, which keeps resizing (and re-triggering anchor
+            // recalculation) well past the 200ms slide/fade, tanking frame rate. A tween
+            // matched to the other transitions settles in lockstep instead.
             (slideInHorizontally(tween(200)) { width -> if (forward) width / 4 else -width / 4 } + fadeIn(tween(200)))
                 .togetherWith(slideOutHorizontally(tween(200)) { width -> if (forward) -width / 4 else width / 4 } + fadeOut(tween(150)))
+                .using(SizeTransform(clip = false, sizeAnimationSpec = { _, _ -> tween(200) }))
         },
         label = "subscriptionDrillIn",
     ) { showMenu ->
