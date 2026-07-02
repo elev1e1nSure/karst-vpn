@@ -16,10 +16,13 @@ data class SubscriptionParseFailure(
 object SubscriptionParser {
     fun parse(body: String): SubscriptionParseResult {
         val decoded = decodeSubscription(body)
+        // Some panels serve a full Xray JSON client config instead of a vless:// link list;
+        // synthesize link lines from it so the rest of the pipeline stays untouched.
+        val source = XrayJsonSubscription.extractVlessUris(decoded)?.joinToString("\n") ?: decoded
         val links = mutableListOf<VlessLink>()
         val failures = mutableListOf<SubscriptionParseFailure>()
 
-        decoded.lineSequence()
+        source.lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .forEach { line ->
