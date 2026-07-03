@@ -86,7 +86,7 @@ class SubscriptionRefreshWorker(
     }
 }
 
-private fun SubscriptionAutoRefreshConfig.repeatHoursOrNull(): Int? =
+internal fun SubscriptionAutoRefreshConfig.repeatHoursOrNull(): Int? =
     when (mode) {
         SubscriptionAutoRefreshMode.Off -> null
         SubscriptionAutoRefreshMode.EveryHours -> customHours.coerceIn(1, MAX_AUTO_REFRESH_HOURS)
@@ -97,4 +97,4 @@ private fun SubscriptionAutoRefreshConfig.repeatHoursOrNull(): Int? =
             ?: SettingsRepository.DEFAULT_AUTO_REFRESH_HOURS
     }.takeIf { subscriptions.isNotEmpty() }
 
-private const val MAX_AUTO_REFRESH_HOURS = 24 * 30
+internal const val MAX_AUTO_REFRESH_HOURS = 24 * 30
