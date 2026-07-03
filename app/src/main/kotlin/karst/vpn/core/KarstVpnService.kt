@@ -29,6 +29,7 @@ import karst.vpn.log.AppLog
 import karst.vpn.log.AppLogBuffer
 import karst.vpn.data.RoutingMode
 import karst.vpn.data.SettingsRepository
+import karst.vpn.net.LatencyResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -103,6 +104,14 @@ class KarstVpnService : VpnService(), CommandServerHandler {
                 withContext(Dispatchers.IO) {
                     val app = KarstApplication.instance
                     val server = app.container.serverRepository.getServer(serverId) ?: error("Сервер не найден")
+
+                    AppLog.info(AppLog.Category.NET, "TCP healthcheck starting host=${server.host}:${server.port}")
+                    when (val healthcheck = app.container.latencyProbe.measure(server.host, server.port, HEALTHCHECK_TIMEOUT_MS)) {
+                        is LatencyResult.Ok -> AppLog.info(AppLog.Category.NET, "TCP healthcheck passed host=${server.host}:${server.port}")
+                        is LatencyResult.Timeout -> error("Сервер ${server.host}:${server.port} недоступен: таймаут")
+                        is LatencyResult.Error -> error("Сервер ${server.host}:${server.port} недоступен: ${healthcheck.message}")
+                    }
+
                     val dnsUrl = app.container.settingsRepository.dnsDohUrl.first()
                     val routingMode = app.container.settingsRepository.routingMode.first()
                     val config = VpnConfigBuilder.build(server, dnsUrl, routingMode)
@@ -216,7 +225,11 @@ class KarstVpnService : VpnService(), CommandServerHandler {
     }
 
     override fun serviceStop() {
-        scope.launch { stopTunnel() }
+        val wasActive = ConnectionStateHolder.phase.value != ConnectionPhase.Off
+        if (wasActive) {
+            AppLog.warn(AppLog.Category.VPN, "connection lost: sing-box requested service stop unexpectedly")
+        }
+        scope.launch { stopTunnel(if (wasActive) "Соединение неожиданно прервано" else null) }
     }
 
     override fun serviceReload() = Unit
@@ -333,6 +346,7 @@ class KarstVpnService : VpnService(), CommandServerHandler {
         private const val EXTRA_SERVER_ID = "server_id"
         private const val CHANNEL_ID = "vpn_status"
         private const val NOTIFICATION_ID = 1001
+        private const val HEALTHCHECK_TIMEOUT_MS = 5000
 
         fun connect(context: Context, serverId: String) {
             val intent = Intent(context, KarstVpnService::class.java)

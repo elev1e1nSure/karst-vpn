@@ -12,6 +12,8 @@ import androidx.work.WorkRequest
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 import karst.vpn.KarstApplication
+import karst.vpn.core.ConnectionPhase
+import karst.vpn.core.ConnectionStateHolder
 import karst.vpn.data.entities.SubscriptionEntity
 import karst.vpn.log.AppLog
 import kotlinx.coroutines.flow.first
@@ -69,6 +71,10 @@ class SubscriptionRefreshWorker(
         AppLog.info(AppLog.Category.NET, "SubscriptionRefreshWorker: work execution started")
         if (app.container.settingsRepository.subscriptionAutoRefreshMode.first() == SubscriptionAutoRefreshMode.Off) {
             AppLog.info(AppLog.Category.NET, "SubscriptionRefreshWorker: auto-refresh is disabled. Skipping.")
+            return Result.success()
+        }
+        if (ConnectionStateHolder.phase.value == ConnectionPhase.On) {
+            AppLog.info(AppLog.Category.NET, "SubscriptionRefreshWorker: skipping subscription refresh while VPN is connected")
             return Result.success()
         }
 
