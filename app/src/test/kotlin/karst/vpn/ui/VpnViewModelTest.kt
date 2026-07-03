@@ -25,6 +25,7 @@ import karst.vpn.net.LatencyProbe
 import karst.vpn.net.LatencyResult
 import karst.vpn.net.SubscriptionFetcher
 import karst.vpn.net.SubscriptionFetchResult
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -115,6 +116,7 @@ class VpnViewModelTest {
 
     @After
     fun tearDown() {
+        viewModel.viewModelScope.cancel()
         testScope.cancel()
     }
 
@@ -181,6 +183,111 @@ class VpnViewModelTest {
         viewModel.setDarkMode(false)
         val state = viewModel.uiState.first { !it.darkModeOn }
         assertEquals(false, state.darkModeOn)
+    }
+
+    @Test
+    fun testAddSubscriptionFetchFailureSetsAddServerError() = testScope.runTest {
+        fetcher.result = Result.failure(RuntimeException("network down"))
+
+        viewModel.addServerInput("https://example.com/sub")
+
+        val state = viewModel.uiState.first { it.addServerError != null }
+        assertEquals("network down", state.addServerError)
+        assertTrue(state.servers.isEmpty())
+    }
+
+    @Test
+    fun testRefreshSubscriptionSuccessUpdatesImportMessage() = testScope.runTest {
+        val uuid = "11111111-1111-4111-8111-111111111111"
+        val subId = seedExistingSubscription(uuid, "s1.com", "S1")
+
+        fetcher.result = Result.success(SubscriptionFetchResult("vless://$uuid@s2.com:443?security=none#S2"))
+        viewModel.refreshSubscription(subId)
+
+        val state = viewModel.uiState.first { it.importMessage != null }
+        assertEquals("", state.importMessage)
+        assertEquals("S2", state.servers[0].name)
+    }
+
+    @Test
+    fun testRefreshSubscriptionFailureSetsErrorMessage() = testScope.runTest {
+        val uuid = "11111111-1111-4111-8111-111111111111"
+        val subId = seedExistingSubscription(uuid, "s1.com", "S1")
+
+        fetcher.result = Result.success(SubscriptionFetchResult(""))
+        viewModel.refreshSubscription(subId)
+
+        val state = viewModel.uiState.first { it.importMessage != null }
+        assertEquals(
+            "Обновление не применено: подписка не вернула VLESS-серверы",
+            state.importMessage,
+        )
+    }
+
+    /** Seeds the fake DB directly (bypassing addServerInput's own IO round trip) so refresh tests
+     * don't race a second Dispatchers.IO hop against the first. */
+    private fun seedExistingSubscription(uuid: String, host: String, remark: String): String {
+        val subId = "sub-$host"
+        dbState.subscriptions[subId] = SubscriptionEntity(
+            id = subId,
+            url = "https://$host/sub",
+            displayName = host,
+            lastRefreshedAtEpochMs = null,
+            lastRefreshError = null,
+            createdAtEpochMs = 0L,
+        )
+        dbState.servers["server-$host"] = ServerEntity(
+            id = "server-$host",
+            subscriptionId = subId,
+            displayName = remark,
+            rawLink = "vless://$uuid@$host:443?security=none#$remark",
+            outboundConfigJson = "{}",
+            host = host,
+            port = 443,
+            sortOrder = 0,
+            latencyMs = null,
+            latencyStatus = LatencyStatus.Untested,
+            latencyMeasuredAtEpochMs = null,
+            addedAtEpochMs = 0L,
+        )
+        dbState.subscriptionsFlow.value = dbState.subscriptions.values.toList()
+        dbState.serversFlow.value = dbState.servers.values.toList()
+        return subId
+    }
+
+    @Test
+    fun testRefreshAllSubscriptionsTracksLoadingAndSetsMessage() = testScope.runTest {
+        val uuid = "11111111-1111-4111-8111-111111111111"
+        seedExistingSubscription(uuid, "s1.com", "S1")
+        fetcher.result = Result.success(SubscriptionFetchResult("vless://$uuid@s1.com:443?security=none#S1"))
+
+        viewModel.refreshAllSubscriptions()
+
+        val state = viewModel.uiState.first { it.importMessage != null }
+        assertEquals(false, state.refreshAllLoading)
+        assertEquals("", state.importMessage)
+    }
+
+    @Test
+    fun testDeleteSubscriptionClearsSelectionWhenServerBelongsToIt() = testScope.runTest {
+        val uuid = "11111111-1111-4111-8111-111111111111"
+        val subId = seedExistingSubscription(uuid, "s1.com", "S1")
+        settingsRepository.setSelectedServerId("server-s1.com")
+        viewModel.uiState.first { it.selectedServerId == "server-s1.com" }
+
+        viewModel.deleteSubscription(subId)
+        val state = viewModel.uiState.first { it.selectedServerId == null }
+        assertTrue(state.servers.isEmpty())
+    }
+
+    @Test
+    fun testClearAddErrorAndClearImportMessage() = testScope.runTest {
+        viewModel.addServerInput("invalid-vless-link")
+        viewModel.uiState.first { it.addServerError != null }
+
+        viewModel.clearAddError()
+        val state = viewModel.uiState.first { it.addServerError == null }
+        assertNull(state.addServerError)
     }
 
     @Test
