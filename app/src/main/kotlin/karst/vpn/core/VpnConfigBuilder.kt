@@ -3,6 +3,8 @@ package karst.vpn.core
 import karst.vpn.data.RoutingMode
 import karst.vpn.data.SettingsRepository
 import karst.vpn.data.entities.ServerEntity
+import karst.vpn.link.SingBoxOutboundBuilder
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -22,7 +24,13 @@ object VpnConfigBuilder {
         dnsDohUrl: String = SettingsRepository.DEFAULT_DNS_DOH_URL,
         routingMode: RoutingMode = RoutingMode.BypassRu,
     ): String {
-        val outbound = json.parseToJsonElement(server.outboundConfigJson).jsonObject
+        val outbound = try {
+            json.parseToJsonElement(server.outboundConfigJson).jsonObject
+        } catch (e: SerializationException) {
+            throw IllegalStateException("Повреждённая конфигурация сервера «${server.displayName}»", e)
+        } catch (e: IllegalArgumentException) {
+            throw IllegalStateException("Повреждённая конфигурация сервера «${server.displayName}»", e)
+        }
         return json.encodeToString(
             JsonObject.serializer(),
             buildJsonObject {
@@ -98,7 +106,7 @@ object VpnConfigBuilder {
                 }
             },
         )
-        put("final", "proxy")
+        put("final", SingBoxOutboundBuilder.PROXY_TAG)
         put("auto_detect_interface", true)
     }
 

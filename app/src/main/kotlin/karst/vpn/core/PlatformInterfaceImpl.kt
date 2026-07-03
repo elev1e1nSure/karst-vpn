@@ -92,7 +92,11 @@ class PlatformInterfaceImpl(
 
         val descriptor = builder.establish() ?: error("android: failed to establish vpn")
         val fd = descriptor.fd
+        val previous = service.activeTunDescriptor
         service.activeTunDescriptor = descriptor
+        if (previous != null && previous !== descriptor) {
+            runCatching { previous.close() }
+        }
         return fd
     }
 

@@ -37,10 +37,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class KarstVpnService : VpnService(), CommandServerHandler {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val tunnelMutex = Mutex()
     private var commandServer: CommandServer? = null
     var activeTunDescriptor: ParcelFileDescriptor? = null
 
@@ -95,28 +98,35 @@ class KarstVpnService : VpnService(), CommandServerHandler {
 
     private suspend fun startTunnel(serverId: String) {
         ConnectionStateHolder.connecting()
-        runCatching {
-            withContext(Dispatchers.IO) {
-                val app = KarstApplication.instance
-                val server = app.container.serverRepository.getServer(serverId) ?: error("Сервер не найден")
-                val dnsUrl = app.container.settingsRepository.dnsDohUrl.first()
-                val routingMode = app.container.settingsRepository.routingMode.first()
-                val config = VpnConfigBuilder.build(server, dnsUrl, routingMode)
+        val result = tunnelMutex.withLock {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val app = KarstApplication.instance
+                    val server = app.container.serverRepository.getServer(serverId) ?: error("Сервер не найден")
+                    val dnsUrl = app.container.settingsRepository.dnsDohUrl.first()
+                    val routingMode = app.container.settingsRepository.routingMode.first()
+                    val config = VpnConfigBuilder.build(server, dnsUrl, routingMode)
 
-                commandServer?.closeService()
-                commandServer?.close()
-                val nextServer = CommandServer(this@KarstVpnService, PlatformInterfaceImpl(this@KarstVpnService))
-                nextServer.start()
-                nextServer.startOrReloadService(config, OverrideOptions())
-                commandServer = nextServer
+                    runCatching { commandServer?.closeService() }
+                        .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close previous libbox service", it) }
+                    runCatching { commandServer?.close() }
+                        .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close previous command server", it) }
+                    commandServer = null
 
-                activeServerId = serverId
-                currentRoutingMode = routingMode
-                currentDnsDohUrl = dnsUrl
+                    val nextServer = CommandServer(this@KarstVpnService, PlatformInterfaceImpl(this@KarstVpnService))
+                    nextServer.start()
+                    nextServer.startOrReloadService(config, OverrideOptions())
+                    commandServer = nextServer
 
-                server.displayName
+                    activeServerId = serverId
+                    currentRoutingMode = routingMode
+                    currentDnsDohUrl = dnsUrl
+
+                    server.displayName
+                }
             }
-        }.onSuccess { serverName ->
+        }
+        result.onSuccess { serverName ->
             val connectedAt = System.currentTimeMillis()
             SocketProtectorRegistry.current = SocketProtector { socket -> protect(socket) }
             ConnectionStateHolder.connected(connectedAt)
@@ -133,20 +143,22 @@ class KarstVpnService : VpnService(), CommandServerHandler {
     }
 
     private suspend fun stopTunnel(error: String? = null) = withContext(NonCancellable) {
-        withContext(Dispatchers.IO) {
-            runCatching { commandServer?.closeService() }
-                .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close libbox service", it) }
-            runCatching { commandServer?.close() }
-                .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close command server", it) }
-            commandServer = null
+        tunnelMutex.withLock {
+            withContext(Dispatchers.IO) {
+                runCatching { commandServer?.closeService() }
+                    .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close libbox service", it) }
+                runCatching { commandServer?.close() }
+                    .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close command server", it) }
+                commandServer = null
 
-            runCatching { activeTunDescriptor?.close() }
-                .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close TUN descriptor", it) }
-            activeTunDescriptor = null
+                runCatching { activeTunDescriptor?.close() }
+                    .onFailure { AppLog.error(AppLog.Category.VPN, "Failed to close TUN descriptor", it) }
+                activeTunDescriptor = null
+            }
+            activeServerId = null
+            currentRoutingMode = null
+            currentDnsDohUrl = null
         }
-        activeServerId = null
-        currentRoutingMode = null
-        currentDnsDohUrl = null
 
         SocketProtectorRegistry.current = null
         ConnectionStateHolder.off(error)
@@ -183,19 +195,23 @@ class KarstVpnService : VpnService(), CommandServerHandler {
 
     private suspend fun reloadTunnel(newMode: RoutingMode, newDnsUrl: String) {
         val serverId = activeServerId ?: return
-        runCatching {
-            withContext(Dispatchers.IO) {
-                val app = KarstApplication.instance
-                val server = app.container.serverRepository.getServer(serverId) ?: error("Сервер не найден")
-                val config = VpnConfigBuilder.build(server, newDnsUrl, newMode)
-                commandServer?.startOrReloadService(config, OverrideOptions())
-                currentRoutingMode = newMode
-                currentDnsDohUrl = newDnsUrl
+        val result = tunnelMutex.withLock {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val app = KarstApplication.instance
+                    val server = app.container.serverRepository.getServer(serverId) ?: error("Сервер не найден")
+                    val config = VpnConfigBuilder.build(server, newDnsUrl, newMode)
+                    commandServer?.startOrReloadService(config, OverrideOptions())
+                    currentRoutingMode = newMode
+                    currentDnsDohUrl = newDnsUrl
+                }
             }
-        }.onSuccess {
+        }
+        result.onSuccess {
             AppLog.info(AppLog.Category.VPN, "VPN tunnel reloaded successfully with mode: $newMode")
         }.onFailure {
-            AppLog.error(AppLog.Category.VPN, "VPN tunnel reload failed", it)
+            AppLog.error(AppLog.Category.VPN, "VPN tunnel reload failed, disconnecting", it)
+            stopTunnel(it.message ?: "Не удалось применить настройки")
         }
     }
 

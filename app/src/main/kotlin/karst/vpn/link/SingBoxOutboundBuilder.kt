@@ -8,7 +8,9 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 object SingBoxOutboundBuilder {
-    fun build(link: VlessLink, tag: String = "proxy"): JsonObject = buildJsonObject {
+    const val PROXY_TAG = "proxy"
+
+    fun build(link: VlessLink, tag: String = PROXY_TAG): JsonObject = buildJsonObject {
         put("type", "vless")
         put("tag", tag)
         put("server", link.host)
