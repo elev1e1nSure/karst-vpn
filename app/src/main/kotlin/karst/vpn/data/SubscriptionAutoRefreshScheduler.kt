@@ -1,12 +1,14 @@
 package karst.vpn.data
 
 import android.content.Context
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import androidx.work.WorkRequest
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 import karst.vpn.KarstApplication
@@ -45,6 +47,7 @@ class SubscriptionAutoRefreshScheduler(context: Context) {
             .build()
         val request = PeriodicWorkRequestBuilder<SubscriptionRefreshWorker>(hours.toLong(), TimeUnit.HOURS)
             .setConstraints(constraints)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
             .build()
 
         AppLog.info(AppLog.Category.SERVICE, "Scheduling periodic auto-refresh every $hours hours.")
@@ -86,10 +89,12 @@ class SubscriptionRefreshWorker(
 private fun SubscriptionAutoRefreshConfig.repeatHoursOrNull(): Int? =
     when (mode) {
         SubscriptionAutoRefreshMode.Off -> null
-        SubscriptionAutoRefreshMode.EveryHours -> customHours.coerceAtLeast(1)
+        SubscriptionAutoRefreshMode.EveryHours -> customHours.coerceIn(1, MAX_AUTO_REFRESH_HOURS)
         SubscriptionAutoRefreshMode.Auto -> subscriptions
             .mapNotNull { it.profileUpdateIntervalHours }
-            .filter { it > 0 }
+            .filter { it in 1..MAX_AUTO_REFRESH_HOURS }
             .minOrNull()
             ?: SettingsRepository.DEFAULT_AUTO_REFRESH_HOURS
     }.takeIf { subscriptions.isNotEmpty() }
+
+private const val MAX_AUTO_REFRESH_HOURS = 24 * 30

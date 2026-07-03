@@ -69,8 +69,13 @@ class NetworkSubscriptionFetcher(
                 metadata = SubscriptionMetadata(
                     profileTitle = response.header("Profile-Title")?.decodeHeaderValue(),
                     announce = response.header("Announce")?.decodeHeaderValue(),
-                    profileUpdateIntervalHours = response.header("Profile-Update-Interval")?.toIntOrNull(),
-                    profileWebPageUrl = response.header("Profile-Web-Page-Url")?.takeIf { it.isNotBlank() },
+                    profileUpdateIntervalHours = response.header("Profile-Update-Interval")
+                        ?.toIntOrNull()
+                        ?.coerceIn(MIN_UPDATE_INTERVAL_HOURS, MAX_UPDATE_INTERVAL_HOURS),
+                    profileWebPageUrl = response.header("Profile-Web-Page-Url")
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() }
+                        ?.take(MAX_HEADER_VALUE_LENGTH),
                     routingEnabled = response.header("Routing-Enable")?.toBooleanStrictOrNull(),
                     uploadBytes = response.header("Subscription-Userinfo").parseUserInfoField("upload"),
                     downloadBytes = response.header("Subscription-Userinfo").parseUserInfoField("download"),
@@ -93,8 +98,12 @@ class NetworkSubscriptionFetcher(
     private companion object {
         const val MAX_SUBSCRIPTION_BYTES = 1L * 1024L * 1024L
         const val READ_CHUNK_BYTES = 8L * 1024L
+        const val MIN_UPDATE_INTERVAL_HOURS = 1
+        const val MAX_UPDATE_INTERVAL_HOURS = 24 * 30
     }
 }
+
+private const val MAX_HEADER_VALUE_LENGTH = 256
 
 private fun String.decodeHeaderValue(): String? {
     val raw = trim()
@@ -104,7 +113,7 @@ private fun String.decodeHeaderValue(): String? {
     } else {
         raw
     }
-    return decoded?.trim()?.takeIf { it.isNotBlank() }
+    return decoded?.trim()?.takeIf { it.isNotBlank() }?.take(MAX_HEADER_VALUE_LENGTH)
 }
 
 private fun String?.parseUserInfoField(name: String): Long? =

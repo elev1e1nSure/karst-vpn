@@ -57,8 +57,8 @@ class VpnUiTest {
         latencyProbe = FakeLatencyProbe()
 
         serverRepository = ServerRepository(db)
-        importCoordinator = ImportCoordinator(db, fetcher)
         subscriptionRefresher = SubscriptionRefresher(db, fetcher)
+        importCoordinator = ImportCoordinator(db, fetcher, subscriptionRefresher)
         latencyTracker = LatencyTracker(db, latencyProbe)
 
         val dataStore = FakeDataStore()

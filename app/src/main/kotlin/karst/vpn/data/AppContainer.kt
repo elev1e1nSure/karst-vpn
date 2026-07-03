@@ -26,8 +26,8 @@ class AppContainer(context: Context) {
     val subscriptionFetcher: SubscriptionFetcher = NetworkSubscriptionFetcher()
     val latencyProbe: LatencyProbe = SocketLatencyProbe()
     val serverRepository = ServerRepository(database)
-    val importCoordinator = ImportCoordinator(database, subscriptionFetcher)
     val subscriptionRefresher = SubscriptionRefresher(database, subscriptionFetcher)
+    val importCoordinator = ImportCoordinator(database, subscriptionFetcher, subscriptionRefresher)
     private val subscriptionAutoRefreshScheduler = SubscriptionAutoRefreshScheduler(appContext)
     val latencyTracker = LatencyTracker(database, latencyProbe)
 

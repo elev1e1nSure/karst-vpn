@@ -9,8 +9,11 @@ import karst.vpn.link.toImportSummary
 import karst.vpn.link.toServerEntity
 import karst.vpn.net.SubscriptionFetcher
 import karst.vpn.log.AppLog
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class SubscriptionRefresher(
     private val database: KarstDatabase,
@@ -18,6 +21,7 @@ class SubscriptionRefresher(
 ) {
     private val servers = database.servers()
     private val subscriptions = database.subscriptions()
+    private val refreshLocks = ConcurrentHashMap<String, Mutex>()
 
     suspend fun refreshAll(): Result<ImportSummary> = runCatching {
         AppLog.info(AppLog.Category.NET, "Starting refresh of all subscriptions")
@@ -41,7 +45,10 @@ class SubscriptionRefresher(
         ImportSummary(imported = totalImported, skipped = 0, firstServerId = lastFirstServerId, message = "")
     }
 
-    suspend fun refresh(id: String): Result<ImportSummary> = runCatching {
+    suspend fun refresh(id: String): Result<ImportSummary> =
+        refreshLocks.getOrPut(id) { Mutex() }.withLock { refreshLocked(id) }
+
+    private suspend fun refreshLocked(id: String): Result<ImportSummary> = runCatching {
         try {
             val subscription = subscriptions.getById(id) ?: error("Подписка не найдена")
             AppLog.info(AppLog.Category.NET, "Refreshing subscription: id=$id name=${subscription.displayName}")

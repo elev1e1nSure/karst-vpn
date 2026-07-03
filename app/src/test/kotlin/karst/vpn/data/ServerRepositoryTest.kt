@@ -44,8 +44,8 @@ class ServerRepositoryTest {
     private val latencyProbe = FakeLatencyProbe()
 
     private val repository = ServerRepository(db)
-    private val importCoordinator = ImportCoordinator(db, fetcher)
     private val subscriptionRefresher = SubscriptionRefresher(db, fetcher)
+    private val importCoordinator = ImportCoordinator(db, fetcher, subscriptionRefresher)
     private val latencyTracker = LatencyTracker(db, latencyProbe)
 
     @OptIn(ExperimentalCoroutinesApi::class)
