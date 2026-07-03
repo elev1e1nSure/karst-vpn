@@ -15,6 +15,17 @@ rel:
 test:
     ./gradlew.bat test
 
+# Check Kotlin formatting/style
+lint:
+    ./gradlew.bat ktlintCheck
+
+# Auto-format Kotlin sources
+fmt:
+    ./gradlew.bat ktlintFormat
+
+# Composite check — tests + lint, run locally and in CI
+check: test lint
+
 # Clean build outputs
 clean:
     ./gradlew.bat clean
