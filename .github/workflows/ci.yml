@@ -21,14 +21,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just
+
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Lint
-        run: ./gradlew ktlintCheck
+      - run: just check
 
-      - name: Test
-        run: ./gradlew test
-
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+      - run: just dbg
