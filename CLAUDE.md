@@ -27,7 +27,7 @@ Use Windows PowerShell.
 .\scripts\build_libbox.ps1
 ```
 
-`just` aliases: `just dbg`, `just rel`, `just test`, `just clean`, `just lib <tag>`, `just all`, `just`.
+`just` aliases: `just dbg`, `just rel`, `just test`, `just lint`, `just fmt`, `just check`, `just clean`, `just lib <tag>`, `just all`, `just`.
 
 Release signing & CI/CD: signed via env vars `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 Push tag `v*` → GitHub Actions builds `karst-vpn-v{version}.apk` and uploads to Release (see `.github/workflows/release.yml`).
@@ -53,3 +53,4 @@ Push tag `v*` → GitHub Actions builds `karst-vpn-v{version}.apk` and uploads t
 - Commit message format: `type(scope): description`.
 - Allowed types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `perf`, `test`, `ci`, `build`.
 - Do not roll back others' changes without an explicit request.
+- Commit messages are linted via a pre-commit hook (`.pre-commit-config.yaml`, `commitlint.config.js`) — scope is mandatory.
