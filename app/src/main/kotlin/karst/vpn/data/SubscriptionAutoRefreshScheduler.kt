@@ -78,7 +78,7 @@ class SubscriptionRefreshWorker(
             return Result.success()
         }
 
-        return app.container.subscriptionRefresher.refreshAll()
+        return app.container.subscriptionSync.refreshAll()
             .fold(
                 onSuccess = {
                     AppLog.info(AppLog.Category.NET, "SubscriptionRefreshWorker: refreshAll succeeded")

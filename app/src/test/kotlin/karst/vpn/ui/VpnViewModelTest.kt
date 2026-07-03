@@ -9,13 +9,12 @@ import androidx.sqlite.db.SupportSQLiteOpenHelper
 import java.util.concurrent.Executor
 import karst.vpn.core.ConnectionPhase
 import karst.vpn.core.ConnectionStateHolder
-import karst.vpn.data.ImportCoordinator
 import karst.vpn.data.KarstDatabase
 import karst.vpn.data.LatencyStatus
 import karst.vpn.data.LatencyTracker
 import karst.vpn.data.ServerRepository
 import karst.vpn.data.SettingsRepository
-import karst.vpn.data.SubscriptionRefresher
+import karst.vpn.data.SubscriptionSync
 import karst.vpn.data.dao.ServerDao
 import karst.vpn.data.dao.ServerWithSubscription
 import karst.vpn.data.dao.SubscriptionDao
@@ -80,8 +79,7 @@ class VpnViewModelTest {
     private lateinit var fetcher: FakeSubscriptionFetcher
     private lateinit var latencyProbe: FakeLatencyProbe
     private lateinit var serverRepository: ServerRepository
-    private lateinit var importCoordinator: ImportCoordinator
-    private lateinit var subscriptionRefresher: SubscriptionRefresher
+    private lateinit var subscriptionSync: SubscriptionSync
     private lateinit var latencyTracker: LatencyTracker
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var viewModel: VpnViewModel
@@ -96,8 +94,7 @@ class VpnViewModelTest {
         latencyProbe = FakeLatencyProbe()
 
         serverRepository = ServerRepository(db)
-        subscriptionRefresher = SubscriptionRefresher(db, fetcher)
-        importCoordinator = ImportCoordinator(db, fetcher, subscriptionRefresher)
+        subscriptionSync = SubscriptionSync(db, fetcher)
         latencyTracker = LatencyTracker(db, latencyProbe)
 
         val dataStore = FakeDataStore()
@@ -108,8 +105,7 @@ class VpnViewModelTest {
         viewModel = VpnViewModel(
             serverRepository,
             settingsRepository,
-            importCoordinator,
-            subscriptionRefresher,
+            subscriptionSync,
             latencyTracker,
         )
     }

@@ -1,8 +1,9 @@
-package karst.vpn.link
+package karst.vpn.data
 
-import karst.vpn.data.ImportSummary
-import karst.vpn.data.LatencyStatus
 import karst.vpn.data.entities.ServerEntity
+import karst.vpn.link.SingBoxOutboundBuilder
+import karst.vpn.link.SubscriptionParseResult
+import karst.vpn.link.VlessLink
 
 fun VlessLink.toServerEntity(
     id: String,

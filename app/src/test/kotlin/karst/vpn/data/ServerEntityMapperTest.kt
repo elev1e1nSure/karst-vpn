@@ -1,10 +1,14 @@
-package karst.vpn.link
+package karst.vpn.data
 
-import karst.vpn.data.LatencyStatus
+import karst.vpn.link.SecurityMode
+import karst.vpn.link.SubscriptionParseFailure
+import karst.vpn.link.SubscriptionParseResult
+import karst.vpn.link.TransportType
+import karst.vpn.link.VlessLink
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class LinkMapperTest {
+class ServerEntityMapperTest {
 
     private fun link(remark: String, raw: String) = VlessLink(
         raw = raw,

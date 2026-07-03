@@ -7,14 +7,13 @@ import androidx.lifecycle.viewModelScope
 import karst.vpn.KarstApplication
 import karst.vpn.core.ConnectionPhase
 import karst.vpn.core.ConnectionStateHolder
-import karst.vpn.data.ImportCoordinator
 import karst.vpn.data.LatencyStatus
 import karst.vpn.data.LatencyTracker
 import karst.vpn.data.RoutingMode
 import karst.vpn.data.ServerRepository
 import karst.vpn.data.SettingsRepository
 import karst.vpn.data.SubscriptionAutoRefreshMode
-import karst.vpn.data.SubscriptionRefresher
+import karst.vpn.data.SubscriptionSync
 import karst.vpn.data.dao.ServerWithSubscription
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -74,8 +73,7 @@ private data class RefreshAllState(
 class VpnViewModel(
     private val serverRepository: ServerRepository,
     private val settingsRepository: SettingsRepository,
-    private val importCoordinator: ImportCoordinator,
-    private val subscriptionRefresher: SubscriptionRefresher,
+    private val subscriptionSync: SubscriptionSync,
     private val latencyTracker: LatencyTracker,
 ) : ViewModel() {
     private val addServerState = MutableStateFlow(AddServerState())
@@ -226,7 +224,7 @@ class VpnViewModel(
             importMessage.value = null
 
             val result = withContext(Dispatchers.IO) {
-                importCoordinator.importInput(text)
+                subscriptionSync.importInput(text)
             }
 
             result
@@ -271,7 +269,7 @@ class VpnViewModel(
         viewModelScope.launch {
             importMessage.value = null
             val result = withContext(Dispatchers.IO) {
-                subscriptionRefresher.refresh(id)
+                subscriptionSync.refresh(id)
             }
             result
                 .onSuccess {
@@ -289,7 +287,7 @@ class VpnViewModel(
             refreshAllState.value = RefreshAllState(loading = true)
             importMessage.value = null
             val result = withContext(Dispatchers.IO) {
-                subscriptionRefresher.refreshAll()
+                subscriptionSync.refreshAll()
             }
             result
                 .onSuccess {
@@ -311,8 +309,7 @@ class VpnViewModel(
             VpnViewModel(
                 application.container.serverRepository,
                 application.container.settingsRepository,
-                application.container.importCoordinator,
-                application.container.subscriptionRefresher,
+                application.container.subscriptionSync,
                 application.container.latencyTracker,
             ) as T
     }

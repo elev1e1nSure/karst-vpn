@@ -28,8 +28,7 @@ class ServerRepositoryTest {
     private val latencyProbe = FakeLatencyProbe()
 
     private val repository = ServerRepository(db)
-    private val subscriptionRefresher = SubscriptionRefresher(db, fetcher)
-    private val importCoordinator = ImportCoordinator(db, fetcher, subscriptionRefresher)
+    private val subscriptionSync = SubscriptionSync(db, fetcher)
     private val latencyTracker = LatencyTracker(db, latencyProbe)
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -47,7 +46,7 @@ class ServerRepositoryTest {
     @Test
     fun testAddManualServer() = runTest {
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#MyManual"
-        val result = importCoordinator.importInput(link)
+        val result = subscriptionSync.importInput(link)
         assertTrue(result.isSuccess)
 
         val server = serverDao.getById(result.getOrThrow().firstServerId!!)
@@ -70,7 +69,7 @@ class ServerRepositoryTest {
 
         fetcher.result = Result.success(SubscriptionFetchResult(vlessList))
 
-        val result = importCoordinator.importInput(url)
+        val result = subscriptionSync.importInput(url)
         assertTrue(result.isSuccess)
 
         val importResult = result.getOrThrow()
@@ -110,7 +109,7 @@ class ServerRepositoryTest {
             ),
         )
 
-        val result = importCoordinator.importInput(url)
+        val result = subscriptionSync.importInput(url)
         assertTrue(result.isSuccess)
 
         val subs = subscriptionDao.observeAll().first()
@@ -133,7 +132,7 @@ class ServerRepositoryTest {
 
         fetcher.result = Result.success(SubscriptionFetchResult(mixedContent))
 
-        val result = importCoordinator.importInput(url)
+        val result = subscriptionSync.importInput(url)
         assertTrue(result.isSuccess)
 
         val importResult = result.getOrThrow()
@@ -149,7 +148,7 @@ class ServerRepositoryTest {
         val uuid = "11111111-1111-4111-8111-111111111111"
 
         fetcher.result = Result.success(SubscriptionFetchResult("vless://$uuid@s1.com:443?security=none#S1\nvless://$uuid@s2.com:443?security=none#S2"))
-        importCoordinator.importInput(url).getOrThrow()
+        subscriptionSync.importInput(url).getOrThrow()
         val subId = subscriptionDao.observeAll().first()[0].id
 
         fetcher.result = Result.success(
@@ -158,7 +157,7 @@ class ServerRepositoryTest {
                 metadata = SubscriptionMetadata(profileTitle = "Updated Sub"),
             ),
         )
-        val refreshResult = subscriptionRefresher.refresh(subId)
+        val refreshResult = subscriptionSync.refresh(subId)
         assertTrue(refreshResult.isSuccess)
 
         val servers = serverDao.observeAllWithSubscriptions().first()
@@ -174,11 +173,11 @@ class ServerRepositoryTest {
         val uuid = "11111111-1111-4111-8111-111111111111"
 
         fetcher.result = Result.success(SubscriptionFetchResult("vless://$uuid@s1.com:443?security=none#S1"))
-        importCoordinator.importInput(url).getOrThrow()
+        subscriptionSync.importInput(url).getOrThrow()
         val subId = subscriptionDao.observeAll().first()[0].id
 
         fetcher.result = Result.success(SubscriptionFetchResult(""))
-        val refreshResult = subscriptionRefresher.refresh(subId)
+        val refreshResult = subscriptionSync.refresh(subId)
 
         assertTrue(refreshResult.isFailure)
         val servers = serverDao.observeAllWithSubscriptions().first()
@@ -194,7 +193,7 @@ class ServerRepositoryTest {
     @Test
     fun testDeleteServer() = runTest {
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#Del"
-        val serverId = importCoordinator.importInput(link).getOrThrow().firstServerId!!
+        val serverId = subscriptionSync.importInput(link).getOrThrow().firstServerId!!
 
         assertNotNull(serverDao.getById(serverId))
 
@@ -205,7 +204,7 @@ class ServerRepositoryTest {
     @Test
     fun testTestLatency() = runTest {
         val link = "vless://11111111-1111-4111-8111-111111111111@example.com:443?security=none#Lat"
-        val serverId = importCoordinator.importInput(link).getOrThrow().firstServerId!!
+        val serverId = subscriptionSync.importInput(link).getOrThrow().firstServerId!!
 
         assertEquals(LatencyStatus.Untested, serverDao.getById(serverId)?.latencyStatus)
 
