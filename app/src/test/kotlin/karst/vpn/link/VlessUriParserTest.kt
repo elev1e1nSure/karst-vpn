@@ -166,6 +166,58 @@ class VlessUriParserTest {
         assertTrue(unknown.exceptionOrNull() is InvalidVlessLinkError)
     }
 
+    @Test
+    fun rejectsUnknownSecurityValue() {
+        val result = parseVlessLink("$BASE@example.com:443?security=xtls")
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is InvalidVlessLinkError)
+    }
+
+    @Test
+    fun rejectsMissingOrTrailingUserinfoSeparator() {
+        val noAt = parseVlessLink("vless://example.com:443?security=none")
+        assertTrue(noAt.isFailure)
+
+        val atAtEnd = parseVlessLink("$BASE@")
+        assertTrue(atAtEnd.isFailure)
+    }
+
+    @Test
+    fun parsesAllowInsecureTruthyValues() {
+        val trueValue = parseVlessLink("$BASE@example.com:443?security=tls&allowInsecure=true").getOrThrow()
+        assertTrue(trueValue.allowInsecure)
+
+        val oneValue = parseVlessLink("$BASE@example.com:443?security=tls&allowInsecure=1").getOrThrow()
+        assertTrue(oneValue.allowInsecure)
+
+        val falseValue = parseVlessLink("$BASE@example.com:443?security=tls&allowInsecure=0").getOrThrow()
+        assertFalse(falseValue.allowInsecure)
+
+        val absent = parseVlessLink("$BASE@example.com:443?security=tls").getOrThrow()
+        assertFalse(absent.allowInsecure)
+    }
+
+    @Test
+    fun rejectsUnknownFlowValue() {
+        val result = parseVlessLink("$BASE@example.com:443?security=tls&flow=unknown-flow")
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is InvalidVlessLinkError)
+    }
+
+    @Test
+    fun rejectsMalformedIpv6MissingClosingBracket() {
+        val result = parseVlessLink("$BASE@[2001:db8::1:443?security=none")
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is InvalidVlessLinkError)
+    }
+
+    @Test
+    fun rejectsIpv6WithoutBrackets() {
+        val result = parseVlessLink("$BASE@2001:db8::1:443?security=none")
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is InvalidVlessLinkError)
+    }
+
     private companion object {
         const val UUID = "11111111-1111-4111-8111-111111111111"
         const val BASE = "vless://$UUID"
