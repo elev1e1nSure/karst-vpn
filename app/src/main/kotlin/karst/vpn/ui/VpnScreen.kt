@@ -176,7 +176,12 @@ fun VpnScreen(
                 label = "routeTransition",
             ) { currentRoute ->
                 if (currentRoute == Route.Logs) {
-                    LogsScreen(theme = theme, onBack = { route = Route.Main })
+                    LogsScreen(
+                        theme = theme,
+                        accent = accent,
+                        darkModeOn = state.darkModeOn,
+                        onBack = { route = Route.Main },
+                    )
                 } else {
                     MainVpnScreen(
                         state = state,
