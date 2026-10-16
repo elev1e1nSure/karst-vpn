@@ -32,7 +32,7 @@ APK-файлы доступны в [Releases](https://github.com/elev1e1nSure/ka
 
 Для сборки libbox.aar из sing-box: `.\scripts\build_libbox.ps1`.
 
-Подробнее об архитектуре — в [CLAUDE.md](./CLAUDE.md).
+Подробнее об архитектуре — в [AGENTS.md](./AGENTS.md).
 
 ## Сборка релиза
 
